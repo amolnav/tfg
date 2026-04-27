@@ -14,9 +14,7 @@ const transporter = nodemailer.createTransport({
 const RESTAURANT_NAME = 'Mesón Marinero';
 const RESTAURANT_ADDRESS = 'Calle Mayor, 123, Puerto de Santa María'; // Ejemplo
 const FROM_EMAIL = process.env.SMTP_FROM || `"Alex - ${RESTAURANT_NAME}" <${process.env.SMTP_USER}>`;
-
-// CAPADO TEMPORAL: Todas las pruebas van a este correo
-const OVERRIDE_RECIPIENT = 'alexiraptor06@gmail.com';
+const OVERRIDE_RECIPIENT = process.env.EMAIL_OVERRIDE_RECIPIENT;
 
 /**
  * Plantilla base para los correos
@@ -157,44 +155,15 @@ exports.sendBookingConfirmation = async (booking, customer) => {
 
   const mailOptions = {
     from: FROM_EMAIL,
-    to: OVERRIDE_RECIPIENT, // Usando el capado temporal
+    to: OVERRIDE_RECIPIENT || customer.email,
     subject: `Confirmación de Reserva - ${RESTAURANT_NAME}`,
     html: getBaseTemplate(content),
   };
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`📧 Email de confirmación enviado a ${OVERRIDE_RECIPIENT} (Original: ${customer.email})`);
+    console.log(`📧 Email de confirmación enviado a ${mailOptions.to}`);
   } catch (error) {
     console.error('❌ Error enviando email de confirmación:', error);
-  }
-};
-
-/**
- * Enviar cancelación de reserva
- */
-exports.sendBookingCancellation = async (booking, customer) => {
-  const dateStr = new Date(booking.date).toLocaleDateString('es-ES', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-  });
-  
-  const content = `
-    <h2>Hola, ${customer.firstName}</h2>
-    <p>Te informamos que tu reserva para el día <strong>${dateStr}</strong> ha sido <strong>cancelada</strong>.</p>
-    <p>Lamentamos que no puedas acompañarnos en esta ocasión. Esperamos verte pronto en ${RESTAURANT_NAME}.</p>
-  `;
-
-  const mailOptions = {
-    from: FROM_EMAIL,
-    to: OVERRIDE_RECIPIENT, // Usando el capado temporal
-    subject: `Reserva Cancelada - ${RESTAURANT_NAME}`,
-    html: getBaseTemplate(content),
-  };
-
-  try {
-    await transporter.sendMail(mailOptions);
-    console.log(`📧 Email de cancelación enviado a ${OVERRIDE_RECIPIENT} (Original: ${customer.email})`);
-  } catch (error) {
-    console.error('❌ Error enviando email de cancelación:', error);
   }
 };

@@ -19,11 +19,11 @@ Este directorio contiene la aplicación web del sistema, construida con **React 
    ```
 
 2. **Configurar el archivo `.env`:**
-   Crea un archivo `.env` en la raíz de `/frontend`:
-   ```env
-   VITE_API_URL="http://localhost:3000/api"
-   VITE_SOCKET_URL="http://localhost:3000"
-   ```
+    Crea un archivo `.env` en la raíz de `/frontend`:
+    ```env
+    VITE_API_URL="http://localhost:4000/api"
+    VITE_SOCKET_URL="http://localhost:4000"
+    ```
 
 3. **Ejecutar en desarrollo:**
    ```bash
@@ -61,3 +61,14 @@ Las traducciones se encuentran en `src/locales/`. Para añadir nuevos términos,
 
 ## 🧪 Testing
 Se utiliza **Vitest** y **React Testing Library** para asegurar la calidad de los componentes. Los tests se encuentran junto a sus respectivos componentes o en el directorio `src/tests`.
+
+## Render
+
+Para desplegar el frontend en Render como **Static Site**:
+
+```env
+VITE_API_URL="https://tu-backend.onrender.com/api"
+VITE_SOCKET_URL="https://tu-backend.onrender.com"
+```
+
+Configura también una regla de rewrite para SPA hacia `index.html`.

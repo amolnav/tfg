@@ -140,12 +140,12 @@ erDiagram
 ## 🚀 Despliegue (Estado Actual)
 
 > [!IMPORTANT]
-> **Pendiente de Despliegue:** Actualmente el proyecto se ejecuta localmente mediante Docker para desarrollo y pruebas.
+> **Despliegue objetivo:** el proyecto puede desplegarse separando frontend y backend en Render.
 > 
-> **Plan de Despliegue (Placeholder):**
-> - **Frontend:** Vercel / Netlify.
-> - **Backend:** Render / Railway.
-> - **Database:** Supabase / PostgreSQL.
+> **Configuración recomendada:**
+> - **Frontend:** Render Static Site
+> - **Backend:** Render Web Service
+> - **Database:** Render PostgreSQL
 
 ---
 

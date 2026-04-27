@@ -20,16 +20,17 @@ Este directorio contiene el núcleo del sistema, una API REST construida con **E
    ```
 
 2. **Configurar el archivo `.env`:**
-   Crea un archivo `.env` basado en `.env.example`:
-   ```env
-   DATABASE_URL="postgresql://user:password@localhost:5432/tfg_db"
-   JWT_SECRET="tu_secreto_super_seguro"
-   PORT=3000
-   
-   # Configuración de Email (SMTP)
-   EMAIL_USER="tu_email@gmail.com"
-   EMAIL_PASS="tu_contraseña_aplicacion"
-   ```
+    Crea un archivo `.env` basado en `.env.example`:
+    ```env
+    DATABASE_URL="postgresql://user:password@localhost:5432/tfg_db"
+    JWT_SECRET="tu_secreto_super_seguro"
+    FRONTEND_URL="http://localhost:5173"
+    PORT=4000
+    
+    # Configuración de Email (SMTP)
+    SMTP_USER="tu_email@gmail.com"
+    SMTP_PASS="tu_contraseña_aplicacion"
+    ```
 
 3. **Preparar la Base de Datos:**
    ```bash
@@ -67,3 +68,26 @@ src/
 
 ## 🔌 API Endpoints
 Consulta la [Guía de la API](./API.md) para ver la lista completa de endpoints disponibles.
+
+## Render
+
+Para desplegar el backend en Render como **Web Service**:
+
+- **Root Directory:** `backend`
+- **Build Command:** `npm install && npx prisma generate`
+- **Start Command:** `npx prisma migrate deploy && npm start`
+
+Variables mínimas:
+
+```env
+DATABASE_URL="postgresql://..."
+JWT_SECRET="..."
+FRONTEND_URL="https://tu-frontend.onrender.com"
+PORT=4000
+TZ=Europe/Madrid
+SMTP_HOST="..."
+SMTP_PORT="465"
+SMTP_USER="..."
+SMTP_PASS="..."
+SMTP_FROM="..."
+```

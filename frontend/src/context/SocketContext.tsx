@@ -3,6 +3,8 @@ import { io, Socket } from 'socket.io-client';
 import type { ReactNode } from 'react';
 import { SocketContext } from './socketContextImpl';
 
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+
 export function SocketProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -13,7 +15,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-    return io(window.location.origin, {
+    return io(SOCKET_URL, {
       auth: { token },
       autoConnect: false,
       transports: ['websocket', 'polling'],
