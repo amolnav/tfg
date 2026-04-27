@@ -12,6 +12,8 @@ import {
   updateSystemConfig
 } from '../../services/api';
 import '../../styles/pages/admin/AdminPages.css';
+import { DEFAULT_SPECIALTIES } from '../../constants/publicConfig';
+import type { MenuCategory, MenuItem, SpecialtiesConfig, SystemConfig } from '../../types';
 
 // DnD Kit Imports
 import {
@@ -33,23 +35,6 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 
-interface MenuItem {
-  id: number;
-  name: string;
-  description?: string;
-  price: string;
-  isActive: boolean;
-  displayOrder: number;
-}
-
-interface MenuCategory {
-  id: number;
-  name: string;
-  description?: string;
-  isActive: boolean;
-  displayOrder: number;
-  items: MenuItem[];
-}
 // Sub-component for Sortable Category Card
 function SortableCategoryCard({ 
   category, 
@@ -145,7 +130,7 @@ function SortableCategoryCard({
 
 export default function CartaPage() {
   const [categories, setCategories] = useState<MenuCategory[]>([]);
-  const [systemConfig, setSystemConfig] = useState<any>({});
+  const [systemConfig, setSystemConfig] = useState<SystemConfig>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -172,7 +157,7 @@ export default function CartaPage() {
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
 
   const [editingSpecialties, setEditingSpecialties] = useState<boolean>(false);
-  const [specialtiesForm, setSpecialtiesForm] = useState<any>({});
+  const [specialtiesForm, setSpecialtiesForm] = useState<SpecialtiesConfig>(DEFAULT_SPECIALTIES);
 
   const loadMenu = () => {
     setLoading(true);
@@ -193,7 +178,7 @@ export default function CartaPage() {
   }, []);
 
   const handleEditSpecialtiesClick = () => {
-    let parsedSpecialties: any = {};
+    let parsedSpecialties: SpecialtiesConfig | null = null;
     try {
       if (systemConfig.specialties_config) {
         parsedSpecialties = JSON.parse(systemConfig.specialties_config);
@@ -202,14 +187,7 @@ export default function CartaPage() {
       console.error(e);
     }
     
-    setSpecialtiesForm({
-      title: parsedSpecialties.title || { es: 'Nuestras Especialidades', en: 'Our Specialties', fr: 'Nos Spécialités' },
-      items: parsedSpecialties.items || [
-        { id: 1, name: { es: 'Paella Marinera', en: 'Seafood Paella', fr: 'Paella aux fruits de mer' }, description: { es: 'Nuestro arroz más famoso', en: 'Our famous rice', fr: 'Notre riz le plus célèbre' }, image: '/img/Paella.png' },
-        { id: 2, name: { es: 'Pulpo a la Gallega', en: 'Galician style Octopus', fr: 'Poulpe à la galicienne' }, description: { es: 'Tierno pulpo', en: 'Tender octopus', fr: 'Poulpe tendre' }, image: '/img/Pulpo.png' },
-        { id: 3, name: { es: 'Lubina al Horno', en: 'Baked Sea Bass', fr: 'Bar au four' }, description: { es: 'Pescado salvaje', en: 'Wild fish', fr: 'Poisson sauvage' }, image: '/img/Lubina.png' }
-      ]
-    });
+    setSpecialtiesForm(parsedSpecialties || DEFAULT_SPECIALTIES);
     setEditingSpecialties(true);
   };
 
@@ -230,9 +208,9 @@ export default function CartaPage() {
     setOverId(event.active.id as number);
   };
 
-  const handleDragOver = (event: any) => {
+  const handleDragOver = (event: { over: { id: number | string } | null }) => {
     if (event.over) {
-      setOverId(event.over.id);
+      setOverId(Number(event.over.id));
     }
   };
 
@@ -575,7 +553,7 @@ export default function CartaPage() {
                 </div>
 
                 <h3 style={{ marginTop: '1rem', marginBottom: '0.5rem' }}>Los 3 Platos Especiales</h3>
-                {specialtiesForm.items?.map((item: any, idx: number) => (
+                {specialtiesForm.items?.map((item, idx: number) => (
                   <div key={item.id} style={{ padding: '1rem', background: 'var(--bg-light)', borderRadius: '8px', marginBottom: '1rem' }}>
                     <h4 style={{ marginTop: 0 }}>Plato {idx + 1}</h4>
                     <div style={{ marginBottom: '1rem' }}>

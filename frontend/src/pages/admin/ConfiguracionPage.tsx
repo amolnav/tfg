@@ -2,15 +2,17 @@
 import { useState, useEffect } from 'react';
 import '../../styles/pages/admin/AdminPages.css';
 import { getShifts, updateShift, getSystemConfig, updateSystemConfig } from '../../services/api';
+import { DEFAULT_PUBLIC_CONFIG } from '../../constants/publicConfig';
+import type { Shift, SystemConfig } from '../../types';
 
 export default function ConfiguracionPage() {
-  const [shifts, setShifts] = useState<any[]>([]);
-  const [systemConfig, setSystemConfig] = useState<any>({});
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [systemConfig, setSystemConfig] = useState<SystemConfig>({});
   const [loading, setLoading] = useState(true);
   
-  const [editingShift, setEditingShift] = useState<any | null>(null);
+  const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [editingConfig, setEditingConfig] = useState<boolean>(false);
-  const [configForm, setConfigForm] = useState<any>({});
+  const [configForm, setConfigForm] = useState<SystemConfig>({});
 
   useEffect(() => {
     loadData();
@@ -31,7 +33,7 @@ export default function ConfiguracionPage() {
     }
   };
 
-  const handleEditShiftClick = (shift: any) => {
+  const handleEditShiftClick = (shift: Shift) => {
     setEditingShift({ ...shift });
   };
 
@@ -42,7 +44,7 @@ export default function ConfiguracionPage() {
       await updateShift(editingShift.id, {
         startTime: editingShift.startTime,
         endTime: editingShift.endTime,
-        slotInterval: parseInt(editingShift.slotInterval),
+        slotInterval: editingShift.slotInterval,
         isActive: editingShift.isActive,
       });
       setEditingShift(null);
@@ -55,10 +57,10 @@ export default function ConfiguracionPage() {
 
   const handleEditConfigClick = () => {
     setConfigForm({
-      restaurant_name: systemConfig.restaurant_name || 'Mesón Marinero',
-      restaurant_address: systemConfig.restaurant_address || 'Calle del Puerto, 12 — Alicante',
-      restaurant_phone: systemConfig.restaurant_phone || '965 00 00 00',
-      restaurant_email: systemConfig.restaurant_email || 'info@mesonmarinero.es',
+      restaurant_name: systemConfig.restaurant_name || DEFAULT_PUBLIC_CONFIG.restaurant_name,
+      restaurant_address: systemConfig.restaurant_address || DEFAULT_PUBLIC_CONFIG.restaurant_address,
+      restaurant_phone: systemConfig.restaurant_phone || DEFAULT_PUBLIC_CONFIG.restaurant_phone,
+      restaurant_email: systemConfig.restaurant_email || DEFAULT_PUBLIC_CONFIG.restaurant_email,
       opening_days: systemConfig.opening_days || '1,2,3,4,5,6,0',
     });
     setEditingConfig(true);
@@ -116,19 +118,19 @@ export default function ConfiguracionPage() {
                 <>
                     <div className="config-row">
                         <span className="config-row__label">Nombre</span>
-                        <span className="config-row__value">{systemConfig.restaurant_name || 'Mesón Marinero'}</span>
+                        <span className="config-row__value">{systemConfig.restaurant_name || DEFAULT_PUBLIC_CONFIG.restaurant_name}</span>
                     </div>
                     <div className="config-row">
                         <span className="config-row__label">Dirección</span>
-                        <span className="config-row__value">{systemConfig.restaurant_address || 'Calle del Puerto, 12 — Alicante'}</span>
+                        <span className="config-row__value">{systemConfig.restaurant_address || DEFAULT_PUBLIC_CONFIG.restaurant_address}</span>
                     </div>
                     <div className="config-row">
                         <span className="config-row__label">Teléfono</span>
-                        <span className="config-row__value">{systemConfig.restaurant_phone || '965 00 00 00'}</span>
+                        <span className="config-row__value">{systemConfig.restaurant_phone || DEFAULT_PUBLIC_CONFIG.restaurant_phone}</span>
                     </div>
                     <div className="config-row">
                         <span className="config-row__label">Email de contacto</span>
-                        <span className="config-row__value">{systemConfig.restaurant_email || 'info@mesonmarinero.es'}</span>
+                        <span className="config-row__value">{systemConfig.restaurant_email || DEFAULT_PUBLIC_CONFIG.restaurant_email}</span>
                     </div>
                     
                     <button 
@@ -157,10 +159,10 @@ export default function ConfiguracionPage() {
                             <div className="config-row__label">📅 Días de apertura semanal</div>
                             <div className="config-row__value" style={{ marginTop: '0.5rem', fontWeight: 600, color: 'var(--primary)', fontSize: '1rem' }}>
                                 {systemConfig.opening_days 
-                                    ? systemConfig.opening_days.split(',').sort((a:any, b:any) => {
+                                    ? systemConfig.opening_days.split(',').sort((a, b) => {
                                         const order = [1, 2, 3, 4, 5, 6, 0];
                                         return order.indexOf(parseInt(a)) - order.indexOf(parseInt(b));
-                                    }).map((d: any) => ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][parseInt(d)]).join(', ')
+                                    }).map((d) => ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'][parseInt(d)]).join(', ')
                                     : 'Todos los días'}
                             </div>
                         </div>
@@ -244,7 +246,7 @@ export default function ConfiguracionPage() {
                     min="15"
                     step="15"
                     value={editingShift.slotInterval}
-                    onChange={(e) => setEditingShift({...editingShift, slotInterval: e.target.value})}
+                    onChange={(e) => setEditingShift({...editingShift, slotInterval: Number(e.target.value)})}
                   />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>

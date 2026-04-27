@@ -7,10 +7,23 @@ import type {
   Booking,
   BookingStatus,
   TimeSlot,
+  Customer,
+  CustomerListResponse,
+  MenuCategory,
+  MenuItemPayload,
+  PublicFrontendConfig,
+  Shift,
+  SystemConfig,
+  Table,
+  TablePayload,
+  ZonePayload,
+  ZoneWithTables,
 } from '../types';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -63,9 +76,9 @@ export async function getPublicConfig() {
  * Get public frontend configurations (like specialties)
  * GET /api/public/config
  */
-export async function getPublicFrontendConfig() {
+export async function getPublicFrontendConfig(): Promise<PublicFrontendConfig> {
   const { data } = await api.get('/public/config');
-  return data.data;
+  return data.data as PublicFrontendConfig;
 }
 
 /**
@@ -133,7 +146,7 @@ export async function getBookings(params?: {
  * Create a new backoffice reservation
  * POST /api/backoffice/bookings
  */
-export async function createBackofficeBooking(payload: any): Promise<Booking> {
+export async function createBackofficeBooking(payload: ReservationPayload & { source?: string }): Promise<Booking> {
   const { data } = await api.post('/backoffice/bookings', payload);
   return data.data as Booking;
 }
@@ -151,17 +164,17 @@ export async function updateBookingStatus(id: string, status: BookingStatus): Pr
  * Get all zones with their tables
  * GET /api/backoffice/zones
  */
-export async function getZones(all: boolean = false) {
+export async function getZones(all: boolean = false): Promise<ZoneWithTables[]> {
   const { data } = await api.get('/backoffice/zones', { params: { all } });
-  return data.data?.zones || data.data; // Handles the old and new response shape
+  return (data.data?.zones || data.data) as ZoneWithTables[];
 }
 
-export async function createZone(payload: any) {
+export async function createZone(payload: ZonePayload): Promise<ZoneWithTables> {
   const { data } = await api.post('/backoffice/zones', payload);
   return data.data;
 }
 
-export async function updateZone(id: number, payload: any) {
+export async function updateZone(id: number, payload: ZonePayload): Promise<ZoneWithTables> {
   const { data } = await api.put(`/backoffice/zones/${id}`, payload);
   return data.data;
 }
@@ -171,12 +184,12 @@ export async function deleteZone(id: number) {
   return data.data;
 }
 
-export async function createTable(zoneId: number, payload: any) {
+export async function createTable(zoneId: number, payload: TablePayload): Promise<Table> {
   const { data } = await api.post(`/backoffice/zones/${zoneId}/tables`, payload);
   return data.data;
 }
 
-export async function updateTable(tableId: number, payload: any) {
+export async function updateTable(tableId: number, payload: TablePayload): Promise<Table> {
   const { data } = await api.put(`/backoffice/zones/tables/${tableId}`, payload);
   return data.data;
 }
@@ -186,22 +199,22 @@ export async function deleteTable(tableId: number) {
   return data.data;
 }
 
-export async function getShifts() {
+export async function getShifts(): Promise<Shift[]> {
   const { data } = await api.get('/backoffice/shifts');
-  return data.data?.shifts || [];
+  return (data.data?.shifts || []) as Shift[];
 }
 
-export async function updateShift(id: number, payload: any) {
+export async function updateShift(id: number, payload: Partial<Shift>): Promise<Shift> {
   const { data } = await api.patch(`/backoffice/shifts/${id}`, payload);
   return data.data;
 }
 
-export async function getSystemConfig() {
+export async function getSystemConfig(): Promise<SystemConfig> {
   const { data } = await api.get('/backoffice/config');
-  return data.data;
+  return data.data as SystemConfig;
 }
 
-export async function updateSystemConfig(payload: any) {
+export async function updateSystemConfig(payload: Partial<SystemConfig>): Promise<SystemConfig> {
   const { data } = await api.patch('/backoffice/config', payload);
   return data.data;
 }
@@ -218,7 +231,7 @@ export async function getCustomers(params?: {
   isBlacklisted?: boolean;
   limit?: number;
   page?: number;
-}): Promise<{ customers: any[]; total: number }> {
+}): Promise<CustomerListResponse> {
   const { data } = await api.get('/backoffice/customers', { params });
   return {
     customers: data.data?.customers || [],
@@ -230,9 +243,9 @@ export async function getCustomers(params?: {
  * Get customer details by ID
  * GET /api/backoffice/customers/:id
  */
-export async function getCustomerById(id: string): Promise<any> {
+export async function getCustomerById(id: string): Promise<Customer> {
   const { data } = await api.get(`/backoffice/customers/${id}`);
-  return data.data;
+  return data.data as Customer;
 }
 
 /**
@@ -247,7 +260,7 @@ export async function updateCustomer(
     allergens?: string[];
     birthday?: string;
   }
-): Promise<any> {
+): Promise<Customer> {
   const { data } = await api.patch(`/backoffice/customers/${id}`, payload);
   return data.data;
 }
@@ -256,7 +269,7 @@ export async function updateCustomer(
  * Add a note to a customer
  * POST /api/backoffice/customers/:id/notes
  */
-export async function addCustomerNote(id: string, note: string): Promise<any> {
+export async function addCustomerNote(id: string, note: string): Promise<NonNullable<Customer['notes']>[number]> {
   const { data } = await api.post(`/backoffice/customers/${id}/notes`, { note });
   return data.data;
 }
@@ -265,7 +278,7 @@ export async function addCustomerNote(id: string, note: string): Promise<any> {
  * Toggle customer VIP status
  * POST /api/backoffice/customers/:id/vip
  */
-export async function toggleCustomerVip(id: string, isVip: boolean): Promise<any> {
+export async function toggleCustomerVip(id: string, isVip: boolean): Promise<Customer> {
   const { data } = await api.post(`/backoffice/customers/${id}/vip`, { isVip });
   return data.data;
 }
@@ -278,7 +291,7 @@ export async function toggleCustomerBlacklist(
   id: string,
   blacklist: boolean,
   reason?: string
-): Promise<any> {
+): Promise<Customer> {
   const { data } = await api.post(`/backoffice/customers/${id}/blacklist`, {
     blacklist,
     reason,
@@ -310,17 +323,17 @@ export async function getReviews() {
  * Get backoffice menu categories with items
  * GET /api/backoffice/menu/categories
  */
-export async function getAdminMenu() {
+export async function getAdminMenu(): Promise<MenuCategory[]> {
   const { data } = await api.get('/backoffice/menu/categories');
-  return data.data.categories;
+  return data.data.categories as MenuCategory[];
 }
 
-export async function createMenuCategory(payload: any) {
+export async function createMenuCategory(payload: Omit<MenuCategory, 'id' | 'items'>): Promise<MenuCategory> {
   const { data } = await api.post('/backoffice/menu/categories', payload);
   return data.data;
 }
 
-export async function updateMenuCategory(id: number, payload: any) {
+export async function updateMenuCategory(id: number, payload: Omit<MenuCategory, 'id' | 'items'>): Promise<MenuCategory> {
   const { data } = await api.put(`/backoffice/menu/categories/${id}`, payload);
   return data.data;
 }
@@ -330,12 +343,12 @@ export async function deleteMenuCategory(id: number) {
   return data.data;
 }
 
-export async function createMenuItem(payload: any) {
+export async function createMenuItem(payload: MenuItemPayload) {
   const { data } = await api.post('/backoffice/menu/items', payload);
   return data.data;
 }
 
-export async function updateMenuItem(id: number, payload: any) {
+export async function updateMenuItem(id: number, payload: MenuItemPayload) {
   const { data } = await api.put(`/backoffice/menu/items/${id}`, payload);
   return data.data;
 }

@@ -4,31 +4,8 @@ import { getBookings, updateBookingStatus, createBackofficeBooking } from '../..
 import { useSocket } from '../../context/useSocket';
 import type { Booking, BookingStatus, NewReservationEventPayload } from '../../types';
 import CustomerDetailsModal from '../../components/admin/CustomerDetailsModal';
+import { ALL_STATUSES, STATUS_BADGE_CLASS, STATUS_LABELS } from '../../constants/reservationStatus';
 import '../../styles/pages/admin/AdminPages.css';
-
-const STATUS_LABELS: Record<BookingStatus, string> = {
-  PENDING: 'Pendiente',
-  CONFIRMED: 'Confirmada',
-  RECONFIRMED: 'Reconfirmada',
-  SEATED: 'En mesa',
-  COMPLETED: 'Completada',
-  CANCELLED: 'Cancelada',
-  NO_SHOW: 'No presentado',
-};
-
-const STATUS_BADGE_CLASS: Record<BookingStatus, string> = {
-  PENDING: 'badge badge-pending',
-  CONFIRMED: 'badge badge-confirmed',
-  RECONFIRMED: 'badge badge-reconfirmed',
-  SEATED: 'badge badge-seated',
-  COMPLETED: 'badge badge-completed',
-  CANCELLED: 'badge badge-cancelled',
-  NO_SHOW: 'badge badge-no-show',
-};
-
-const ALL_STATUSES: BookingStatus[] = [
-  'PENDING', 'CONFIRMED', 'RECONFIRMED', 'SEATED', 'COMPLETED', 'CANCELLED', 'NO_SHOW',
-];
 
 export default function ReservasPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);

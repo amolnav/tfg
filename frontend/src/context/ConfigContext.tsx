@@ -1,29 +1,18 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getPublicFrontendConfig } from '../services/api';
-
-interface Config {
-  restaurant_name: string;
-  restaurant_address: string;
-  restaurant_phone: string;
-  restaurant_email: string;
-  specialties?: any;
-}
+import { DEFAULT_PUBLIC_CONFIG } from '../constants/publicConfig';
+import type { PublicFrontendConfig } from '../types';
 
 interface ConfigContextType {
-  config: Config;
+  config: PublicFrontendConfig;
   loading: boolean;
 }
 
 const ConfigContext = createContext<ConfigContextType | undefined>(undefined);
 
 export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [config, setConfig] = useState<Config>({
-    restaurant_name: 'Mesón Marinero',
-    restaurant_address: 'Calle del Puerto, 12 — Alicante',
-    restaurant_phone: '965 00 00 00',
-    restaurant_email: 'info@mesonmarinero.es'
-  });
+  const [config, setConfig] = useState<PublicFrontendConfig>(DEFAULT_PUBLIC_CONFIG);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,11 +21,9 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const data = await getPublicFrontendConfig();
         if (data) {
           setConfig({
-            restaurant_name: data.restaurant_name || 'Mesón Marinero',
-            restaurant_address: data.restaurant_address || 'Calle del Puerto, 12 — Alicante',
-            restaurant_phone: data.restaurant_phone || '965 00 00 00',
-            restaurant_email: data.restaurant_email || 'info@mesonmarinero.es',
-            specialties: data.specialties
+            ...DEFAULT_PUBLIC_CONFIG,
+            ...data,
+            specialties: data.specialties || DEFAULT_PUBLIC_CONFIG.specialties
           });
         }
       } catch (error) {

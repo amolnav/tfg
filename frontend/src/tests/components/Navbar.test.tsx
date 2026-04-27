@@ -1,7 +1,13 @@
 import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Navbar from '../../components/Navbar';
+import { ConfigProvider } from '../../context/ConfigContext';
+import { getPublicFrontendConfig } from '../../services/api';
+
+vi.mock('../../services/api', () => ({
+  getPublicFrontendConfig: vi.fn(),
+}));
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -23,11 +29,27 @@ vi.mock('react-i18next', () => ({
 }));
 
 describe('Navbar Component', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getPublicFrontendConfig).mockResolvedValue({
+      restaurant_name: 'Mesón Marinero',
+      restaurant_address: 'Calle del Puerto, 12 - Alicante',
+      restaurant_phone: '965 00 00 00',
+      restaurant_email: 'info@mesonmarinero.es',
+      specialties: {
+        title: { es: 'Nuestras Especialidades', en: 'Our Specialties', fr: 'Nos Specialites' },
+        items: [],
+      },
+    });
+  });
+
   it('renders correctly with default props', () => {
     render(
-      <BrowserRouter>
-        <Navbar />
-      </BrowserRouter>
+      <ConfigProvider>
+        <BrowserRouter>
+          <Navbar />
+        </BrowserRouter>
+      </ConfigProvider>
     );
     
     expect(screen.getByText('⚓ Mesón Marinero')).toBeInTheDocument();
@@ -39,9 +61,11 @@ describe('Navbar Component', () => {
 
   it('hides nav links when showLinks is false', () => {
     render(
-      <BrowserRouter>
-        <Navbar showLinks={false} />
-      </BrowserRouter>
+      <ConfigProvider>
+        <BrowserRouter>
+          <Navbar showLinks={false} />
+        </BrowserRouter>
+      </ConfigProvider>
     );
     
     expect(screen.queryByText('Inicio')).not.toBeInTheDocument();
@@ -49,9 +73,11 @@ describe('Navbar Component', () => {
 
   it('shows phone info when isReservation is true', () => {
     render(
-      <BrowserRouter>
-        <Navbar isReservation={true} />
-      </BrowserRouter>
+      <ConfigProvider>
+        <BrowserRouter>
+          <Navbar isReservation={true} />
+        </BrowserRouter>
+      </ConfigProvider>
     );
     
     expect(screen.getByText(/965 00 00 00/i)).toBeInTheDocument();

@@ -1,39 +1,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { getDashboard } from '../../services/api';
 import { useSocket } from '../../context/useSocket';
 import type { DashboardData, BookingStatus, NewReservationEventPayload } from '../../types';
+import { STATUS_BADGE_CLASS, STATUS_COLORS, STATUS_LABELS } from '../../constants/reservationStatus';
 import '../../styles/pages/admin/AdminPages.css';
-
-const STATUS_LABELS: Record<BookingStatus, string> = {
-  PENDING: 'Pendiente',
-  CONFIRMED: 'Confirmada',
-  RECONFIRMED: 'Reconfirmada',
-  SEATED: 'En mesa',
-  COMPLETED: 'Completada',
-  CANCELLED: 'Cancelada',
-  NO_SHOW: 'No presentado',
-};
-
-const STATUS_COLORS: Record<BookingStatus, string> = {
-  PENDING: 'var(--status-pending)',
-  CONFIRMED: 'var(--status-confirmed)',
-  RECONFIRMED: 'var(--status-reconfirmed)',
-  SEATED: 'var(--status-seated)',
-  COMPLETED: 'var(--status-completed)',
-  CANCELLED: 'var(--status-cancelled)',
-  NO_SHOW: 'var(--status-no-show)',
-};
-
-const STATUS_BADGE_CLASS: Record<BookingStatus, string> = {
-  PENDING: 'badge badge-pending',
-  CONFIRMED: 'badge badge-confirmed',
-  RECONFIRMED: 'badge badge-reconfirmed',
-  SEATED: 'badge badge-seated',
-  COMPLETED: 'badge badge-completed',
-  CANCELLED: 'badge badge-cancelled',
-  NO_SHOW: 'badge badge-no-show',
-};
 
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -173,9 +145,9 @@ export default function DashboardPage() {
       <div className="section-card">
         <div className="section-card__header">
           <h2 className="section-card__title">Reservas de hoy</h2>
-          <a href="/admin/reservas" className="btn btn-outline" style={{ padding: '0.45rem 1rem', fontSize: '0.85rem' }}>
+          <Link to="/admin/reservas" className="btn btn-outline" style={{ padding: '0.45rem 1rem', fontSize: '0.85rem' }}>
             Ver todas →
-          </a>
+          </Link>
         </div>
         {bookings.length === 0 ? (
           <div className="state-empty">

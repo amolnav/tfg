@@ -2,6 +2,20 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Step1DateTime from '../../../components/reservation/Step1DateTime';
 import * as api from '../../../services/api';
+import type { TimeSlot } from '../../../types';
+
+const t = (key: string) => {
+  const keys: Record<string, string> = {
+    'reservation.step1Title': 'Haz tu Reserva',
+    'reservation.dateLabel': 'Fecha',
+    'reservation.timeLabel': 'Hora',
+    'reservation.paxLabel': 'Comensales',
+    'reservation.nextBtn': 'Siguiente →',
+    'reservation.loadingSlots': 'Cargando horarios...',
+    'reservation.errorNoSlots': 'No hay horarios disponibles para este día y número de comensales. Prueba con otra fecha.',
+  };
+  return keys[key] || key;
+};
 
 // Mock de los servicios de API
 vi.mock('../../../services/api', () => ({
@@ -11,27 +25,19 @@ vi.mock('../../../services/api', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => {
-      const keys: Record<string, string> = {
-        'reservation.step1Title': 'Haz tu Reserva',
-        'reservation.dateLabel': 'Fecha',
-        'reservation.timeLabel': 'Hora',
-        'reservation.paxLabel': 'Comensales',
-        'reservation.nextBtn': 'Siguiente →',
-        'reservation.loadingSlots': 'Cargando horarios...',
-        'reservation.errorNoSlots': 'No hay horarios disponibles para este día y número de comensales. Prueba con otra fecha.',
-      };
-      return keys[key] || key;
-    },
+    t,
   }),
 }));
 
 describe('Step1DateTime Component', () => {
   const onNext = vi.fn();
+  const mockedGetPublicConfig = vi.mocked(api.getPublicConfig);
+  const mockedGetAvailableTimes = vi.mocked(api.getAvailableTimes);
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (api.getPublicConfig as any).mockResolvedValue({ maxPax: 12 });
+    mockedGetPublicConfig.mockResolvedValue({ maxPax: 12 });
+    mockedGetAvailableTimes.mockResolvedValue([] as TimeSlot[]);
   });
 
   it('renders correctly', async () => {
@@ -46,7 +52,7 @@ describe('Step1DateTime Component', () => {
       { time: '13:30', available: true },
       { time: '14:00', available: false },
     ];
-    (api.getAvailableTimes as any).mockResolvedValue(mockSlots);
+    mockedGetAvailableTimes.mockResolvedValue(mockSlots);
 
     render(<Step1DateTime onNext={onNext} />);
     
@@ -71,12 +77,12 @@ describe('Step1DateTime Component', () => {
     fireEvent.change(paxSelect, { target: { value: '4' } });
 
     await waitFor(() => {
-      expect(api.getAvailableTimes).toHaveBeenCalledWith('2026-05-01', 4);
+      expect(mockedGetAvailableTimes).toHaveBeenCalledWith('2026-05-01', 4);
     });
   });
 
   it('calls onNext when form is submitted with valid data', async () => {
-    (api.getAvailableTimes as any).mockResolvedValue([{ time: '13:00', available: true }]);
+    mockedGetAvailableTimes.mockResolvedValue([{ time: '13:00', available: true }]);
     
     render(<Step1DateTime onNext={onNext} />);
     

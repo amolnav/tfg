@@ -57,6 +57,93 @@ export interface Customer {
   };
 }
 
+export interface ZoneWithTables extends Zone {
+  displayOrder?: number;
+  tables: Array<{
+    id: number;
+    name: string;
+    minCapacity: number;
+    maxCapacity: number;
+    isActive: boolean;
+  }>;
+}
+
+export interface Shift {
+  id: number;
+  name: string;
+  startTime: string;
+  endTime: string;
+  slotInterval: number;
+  daysOfWeek: number[];
+  isActive: boolean;
+}
+
+export interface LocalizedText {
+  es: string;
+  en: string;
+  fr: string;
+}
+
+export interface SpecialtiesItem {
+  id: number;
+  name: LocalizedText;
+  description: LocalizedText;
+  image: string;
+}
+
+export interface SpecialtiesConfig {
+  title: LocalizedText;
+  items: SpecialtiesItem[];
+}
+
+export interface PublicFrontendConfig {
+  restaurant_name: string;
+  restaurant_address: string;
+  restaurant_phone: string;
+  restaurant_email: string;
+  specialties: SpecialtiesConfig;
+}
+
+export interface SystemConfig extends Partial<Record<string, string>> {
+  dynamic_max_capacity?: string;
+  dynamic_max_pax?: string;
+  dynamic_active_tables?: string;
+  opening_days?: string;
+  restaurant_name?: string;
+  restaurant_address?: string;
+  restaurant_phone?: string;
+  restaurant_email?: string;
+  specialties_config?: string;
+}
+
+export interface ZonePayload {
+  name: string;
+  description: string;
+  isActive: boolean;
+  displayOrder: number;
+}
+
+export interface TablePayload {
+  name: string;
+  minCapacity: number;
+  maxCapacity: number;
+  isActive: boolean;
+}
+
+export interface MenuItemPayload {
+  name: string;
+  description: string;
+  price: string;
+  isActive: boolean;
+  displayOrder: number;
+  categoryId?: number | null;
+}
+
+export interface CustomerListResponse {
+  customers: Customer[];
+  total: number;
+}
+
 export interface Zone {
   id: number;
   name: string;

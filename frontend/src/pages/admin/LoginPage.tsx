@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { authLogin } from '../../services/api';
 import '../../styles/pages/admin/LoginPage.css';
 
@@ -75,9 +75,9 @@ export default function LoginPage() {
         </form>
 
         <div className="login-back">
-          <a href="/reservar" style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+          <Link to="/reservar" style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
             ← Ver página de reservas
-          </a>
+          </Link>
         </div>
       </div>
     </div>

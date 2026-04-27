@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getBaseLanguage } from '../utils/i18n';
 import './LanguageSwitcher.css';
 
 const LanguageSwitcher: React.FC = () => {
@@ -13,7 +14,8 @@ const LanguageSwitcher: React.FC = () => {
     { code: 'fr', label: 'FR' },
   ];
 
-  const currentLanguage = languages.find(lang => lang.code === i18n.language) || languages[0];
+  const activeLanguage = getBaseLanguage(i18n.language);
+  const currentLanguage = languages.find(lang => lang.code === activeLanguage) || languages[0];
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -52,8 +54,8 @@ const LanguageSwitcher: React.FC = () => {
             <button
               key={lang.code}
               onClick={() => changeLanguage(lang.code)}
-              className={`language-option ${i18n.language === lang.code ? 'active' : ''}`}
-            >
+                className={`language-option ${activeLanguage === lang.code ? 'active' : ''}`}
+              >
               {lang.label}
             </button>
           ))}
