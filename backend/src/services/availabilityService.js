@@ -8,7 +8,6 @@ const {
   isDateInBookableRange,
   meetsMinimumAdvanceTime,
   generateTimeSlots,
-  isTimeInShift,
   getDaysInMonth
 } = require('../utils/dateHelpers');
 const { filterTablesByCapacity, calculateDuration } = require('../utils/tableHelpers');
@@ -25,6 +24,7 @@ const { BOOKING_STATUS, AVAILABILITY } = require('../config/constants');
 async function getAvailableDaysInMonth(year, month, pax, zoneId = null) {
   const allDays = getDaysInMonth(year, month);
   const availableDays = [];
+  const openingDays = await getOpeningDays();
   
   // Obtener turnos activos
   const shifts = await prisma.shift.findMany({
@@ -61,14 +61,7 @@ async function getAvailableDaysInMonth(year, month, pax, zoneId = null) {
     if (isClosedFully) continue;
 
     // Comprobar si el restaurante abre este día de la semana
-    const openingDaysConfig = await prisma.systemConfig.findUnique({
-      where: { key: 'opening_days' }
-    });
-    
-    if (openingDaysConfig) {
-      const openingDays = openingDaysConfig.value.split(',').map(Number);
-      if (!openingDays.includes(dayOfWeek)) continue;
-    }
+    if (openingDays && !openingDays.includes(dayOfWeek)) continue;
     
     // Comprobar si hay algún turno disponible este día
     const hasAvailableShift = shifts.some(shift => 
@@ -134,17 +127,11 @@ async function getAvailableTimesForDay(dateStr, pax, zoneId = null) {
   
   const date = new Date(dateStr);
   const dayOfWeek = getDayOfWeek(date);
+  const openingDays = await getOpeningDays();
 
   // Comprobar si el restaurante abre este día de la semana
-  const openingDaysConfig = await prisma.systemConfig.findUnique({
-    where: { key: 'opening_days' }
-  });
-  
-  if (openingDaysConfig) {
-    const openingDays = openingDaysConfig.value.split(',').map(Number);
-    if (!openingDays.includes(dayOfWeek)) {
-      return { times: [], shifts: [], message: 'El restaurante está cerrado este día' };
-    }
+  if (openingDays && !openingDays.includes(dayOfWeek)) {
+    return { times: [], shifts: [], message: 'El restaurante está cerrado este día' };
   }
   
   // Obtener turnos activos para este día
@@ -239,20 +226,14 @@ async function checkAvailability(dateStr, timeStr, pax, zoneId = null) {
 
   const date = new Date(dateStr);
   const dayOfWeek = getDayOfWeek(date);
+  const openingDays = await getOpeningDays();
 
   // Comprobar si el restaurante abre este día de la semana
-  const openingDaysConfig = await prisma.systemConfig.findUnique({
-    where: { key: 'opening_days' }
-  });
-  
-  if (openingDaysConfig) {
-    const openingDays = openingDaysConfig.value.split(',').map(Number);
-    if (!openingDays.includes(dayOfWeek)) {
-      return {
-        available: false,
-        message: 'El restaurante está cerrado los días seleccionados'
-      };
-    }
+  if (openingDays && !openingDays.includes(dayOfWeek)) {
+    return {
+      available: false,
+      message: 'El restaurante está cerrado los días seleccionados'
+    };
   }
   
   if (!meetsMinimumAdvanceTime(dateStr, timeStr)) {
@@ -318,6 +299,18 @@ async function getCandidateTables(pax, zoneId = null) {
     where: whereClause,
     include: { zone: true }
   });
+}
+
+async function getOpeningDays() {
+  const openingDaysConfig = await prisma.systemConfig.findUnique({
+    where: { key: 'opening_days' }
+  });
+
+  if (!openingDaysConfig?.value) {
+    return null;
+  }
+
+  return openingDaysConfig.value.split(',').map(Number);
 }
 
 /**

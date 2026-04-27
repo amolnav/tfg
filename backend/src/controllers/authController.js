@@ -2,10 +2,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../config/database');
+const { JWT_SECRET, JWT_EXPIRES_IN } = require('../config/auth');
 const { asyncHandler, BusinessError } = require('../middleware/errorHandler');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'changeme-secret-key';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 
 /**
  * POST /api/auth/login

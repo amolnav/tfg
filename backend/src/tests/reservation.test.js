@@ -39,7 +39,7 @@ describe('Reservation Integration Tests', () => {
       prisma.booking.findMany.mockResolvedValue([]);
       prisma.booking.create.mockResolvedValue({
         id: 'new-id',
-        confirmationCode: 'ABC-123',
+        confirmationToken: 'abc123token',
         ...bookingData,
         tableId: 1,
         table: { name: 'Mesa 1', zone: { name: 'Sala' } },
@@ -52,14 +52,6 @@ describe('Reservation Integration Tests', () => {
 
       expect(response.status).toBe(201);
       expect(response.body.data.booking.pax).toBe(2);
-    });
-  });
-
-  describe('GET /api/public/reservations/:code', () => {
-    it('debería retornar 404 si la reserva no existe', async () => {
-      prisma.booking.findUnique.mockResolvedValue(null);
-      const response = await request(app).get('/api/public/reservations/NOTFOUND');
-      expect(response.status).toBe(404);
     });
   });
 });

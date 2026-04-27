@@ -208,19 +208,20 @@ async function startServer() {
   }
 }
 
-// Manejo de cierre graceful
-process.on('SIGINT', async () => {
-  console.log('\n⚠️  Cerrando servidor...');
+async function shutdown(signal) {
+  console.log(`\n⚠️  Cerrando servidor (${signal})...`);
   await prisma.$disconnect();
   console.log('✅ Conexión a BD cerrada');
   process.exit(0);
+}
+
+// Manejo de cierre graceful
+process.on('SIGINT', async () => {
+  await shutdown('SIGINT');
 });
 
 process.on('SIGTERM', async () => {
-  console.log('\n⚠️  Cerrando servidor...');
-  await prisma.$disconnect();
-  console.log('✅ Conexión a BD cerrada');
-  process.exit(0);
+  await shutdown('SIGTERM');
 });
 
 // Iniciar solo si se ejecuta directamente

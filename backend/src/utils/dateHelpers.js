@@ -127,21 +127,6 @@ function generateTimeSlots(startTime, endTime, interval = 30) {
 }
 
 /**
- * Comprueba si una hora está dentro de un rango de turno
- */
-function isTimeInShift(timeStr, shiftStart, shiftEnd) {
-  const [h, m] = timeStr.split(':').map(Number);
-  const [startH, startM] = shiftStart.split(':').map(Number);
-  const [endH, endM] = shiftEnd.split(':').map(Number);
-  
-  const minutes = h * 60 + m;
-  const startMinutes = startH * 60 + startM;
-  const endMinutes = endH * 60 + endM;
-  
-  return minutes >= startMinutes && minutes <= endMinutes;
-}
-
-/**
  * Obtiene todos los días de un mes
  * @param {number} year
  * @param {number} month - 1-12
@@ -159,38 +144,6 @@ function getDaysInMonth(year, month) {
   return days;
 }
 
-/**
- * Formatea duración en minutos a texto legible
- */
-function formatDuration(minutes) {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  
-  if (hours > 0 && mins > 0) return `${hours}h ${mins}min`;
-  if (hours > 0) return `${hours}h`;
-  return `${mins}min`;
-}
-
-/**
- * Parsea una fecha ISO a formato español
- */
-function formatDateES(date) {
-  if (!(date instanceof Date)) date = new Date(date);
-  return date.toLocaleDateString('es-ES', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-}
-
-/**
- * Parsea una hora para mostrar en español
- */
-function formatTimeES(timeStr) {
-  return timeStr; // "14:30" ya está en formato correcto
-}
-
 module.exports = {
   formatDate,
   formatTime,
@@ -202,9 +155,5 @@ module.exports = {
   isDateInBookableRange,
   meetsMinimumAdvanceTime,
   generateTimeSlots,
-  isTimeInShift,
-  getDaysInMonth,
-  formatDuration,
-  formatDateES,
-  formatTimeES
+  getDaysInMonth
 };

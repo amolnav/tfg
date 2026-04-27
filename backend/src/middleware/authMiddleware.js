@@ -2,8 +2,7 @@
 const jwt = require('jsonwebtoken');
 const { BusinessError } = require('./errorHandler');
 const { asyncHandler } = require('./errorHandler');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'changeme-secret-key';
+const { JWT_SECRET } = require('../config/auth');
 
 /**
  * Middleware de autenticación JWT.

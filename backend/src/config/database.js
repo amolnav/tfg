@@ -16,15 +16,4 @@ if (process.env.NODE_ENV === 'production') {
   prisma = global.prisma;
 }
 
-// Manejo de cierre graceful
-process.on('SIGINT', async () => {
-  await prisma.$disconnect();
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  await prisma.$disconnect();
-  process.exit(0);
-});
-
 module.exports = prisma;
