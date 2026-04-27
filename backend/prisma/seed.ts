@@ -19,6 +19,7 @@ async function main() {
   await prisma.staff.deleteMany()
   await prisma.menuItem.deleteMany()
   await prisma.menuCategory.deleteMany()
+  await prisma.systemConfig.deleteMany()
 
   console.log('🧹 Base de datos limpia.')
 
@@ -117,211 +118,486 @@ async function main() {
   await prisma.customer.createMany({
     data: [
       {
-        email: 'juan.perez@example.com',
-        phone: '+34600111222',
+        email: 'ad@ad.com',
+        phone: '645464745',
         firstName: 'Juan',
-        lastName: 'Pérez',
+        lastName: 'martin ',
         language: Language.ES,
-        totalVisits: 5
+        allergens: [],
+        totalVisits: 1,
+        tags: []
       },
       {
-        email: 'maria.garcia@example.com',
-        phone: '+34611222333',
-        firstName: 'María',
-        lastName: 'García',
-        isVip: true,
-        preferences: 'Mesa tranquila. Agua sin gas.',
+        email: 'alejandro.molina@aircury.com',
+        phone: '6020003434',
+        firstName: 'Alex',
+        lastName: 'sadasd',
         language: Language.ES,
-        totalVisits: 23,
-        tags: ['VIP']
+        allergens: [],
+        totalVisits: 2,
+        tags: []
       },
       {
-        email: 'carlos.nuez@example.com',
-        phone: '+34666000666',
-        firstName: 'Carlos',
-        lastName: 'Nùñez',
-        allergens: ['Frutos Secos', 'Marisco'],
+        email: 'alergico@alergias.com',
+        phone: '234054505',
+        firstName: 'Alegico',
+        lastName: 'Garcia Lopez',
         language: Language.ES,
-        totalVisits: 2
+        allergens: ['Marisco', 'Gluten', 'Cebolla', 'Vino', 'Arroz', 'Frutos seco', 'Brocoli', 'Formol'],
+        totalVisits: 1,
+        tags: []
       },
       {
         email: 'bloqueado@example.com',
         phone: '+34000000000',
         firstName: 'Cliente',
         lastName: 'Bloqueado',
-        isBlacklisted: true,
-        blacklistReason: '3 no-shows consecutivos',
-        totalNoShows: 3,
         language: Language.ES,
-        totalVisits: 3
+        allergens: [],
+        totalVisits: 3,
+        isBlacklisted: true,
+        tags: ['BLACKLIST'],
+        totalNoShows: 3,
+        blacklistReason: 'No se presenta'
+      },
+      {
+        email: 'carlitos@mail.com',
+        phone: '623003090',
+        firstName: 'Carlos',
+        lastName: 'Herrera',
+        language: Language.ES,
+        allergens: [],
+        totalVisits: 1,
+        tags: []
+      },
+      {
+        email: 'carlos.nuez@example.com',
+        phone: '+34666000666',
+        firstName: 'Carlos',
+        lastName: 'Nùñez',
+        language: Language.ES,
+        allergens: ['Frutos Secos', 'Marisco'],
+        preferences: 'Prefiere evitar contaminación cruzada y mesa ventilada.',
+        totalVisits: 2,
+        tags: []
+      },
+      {
+        email: 'corre@test.com',
+        phone: '623963958',
+        firstName: 'Marta',
+        lastName: 'Canseco Zorita',
+        language: Language.ES,
+        allergens: ['Gluten'],
+        preferences: 'Si es posible, pan sin gluten para la mesa.',
+        totalVisits: 1,
+        tags: []
+      },
+      {
+        email: 'juan@example.com',
+        phone: '600123456',
+        firstName: 'Juan',
+        lastName: 'Pérez',
+        language: Language.ES,
+        allergens: [],
+        totalVisits: 4,
+        tags: []
+      },
+      {
+        email: 'juan.perez@example.com',
+        phone: '6020003439',
+        firstName: 'Nacho',
+        lastName: 'sadsasad',
+        language: Language.ES,
+        allergens: [],
+        totalVisits: 7,
+        isVip: true,
+        tags: ['VIP']
+      },
+      {
+        email: 'maria@eme.com',
+        phone: '345934596',
+        firstName: 'Nacho',
+        lastName: 'Garcia',
+        language: Language.ES,
+        allergens: [],
+        totalVisits: 1,
+        tags: []
+      },
+      {
+        email: 'maria.garcia@example.com',
+        phone: '+34611222333',
+        firstName: 'María',
+        lastName: 'García Updated',
+        language: Language.ES,
+        allergens: ['Nueces'],
+        preferences: 'Mesa tranquila. Agua sin gas.',
+        totalVisits: 24,
+        isVip: true,
+        tags: ['VIP']
+      },
+      {
+        email: 'test@test.com',
+        phone: '234883848',
+        firstName: 'Nacho',
+        lastName: 'Cabrera',
+        language: Language.ES,
+        allergens: ['Marisco'],
+        totalVisits: 1,
+        tags: []
       }
     ]
   })
 
-  console.log('✅ 4 Clientes CRM de ejemplo')
+  console.log('✅ 12 Clientes CRM cargados desde la BD actual')
 
   // ------------------------------------------------------------------
-  // 7. RESERVAS DE PRUEBA (usando días válidos: martes a sábado)
+  // 7. CONFIGURACIÓN PÚBLICA / SISTEMA (según BD actual)
   // ------------------------------------------------------------------
-  const clienteJuan = await prisma.customer.findUnique({ where: { email: 'juan.perez@example.com' } })
-  const clienteVip = await prisma.customer.findUnique({ where: { email: 'maria.garcia@example.com' } })
+  await prisma.systemConfig.createMany({
+    data: [
+      { key: 'restaurant_name', value: 'Mesón Marinero' },
+      { key: 'restaurant_address', value: 'Calle del Puerto, 12 — Alicante' },
+      { key: 'restaurant_phone', value: '965 00 00 00' },
+      { key: 'restaurant_email', value: 'info@mesonmarinero.es' },
+      { key: 'opening_days', value: '1,3,5,6,0' }
+    ]
+  })
 
-  const mesa5 = await prisma.table.findFirst({ where: { name: 'Mesa 5' } })
-  const mesa10 = await prisma.table.findFirst({ where: { name: 'Mesa 10' } })
+  console.log('✅ Configuración pública y operativa sincronizada con la BD actual')
 
-  if (!clienteJuan || !clienteVip || !mesa5 || !mesa10) return
+  // ------------------------------------------------------------------
+  // 8. RESERVAS DE PRUEBA centradas en la semana del 4 al 9 de mayo
+  // ------------------------------------------------------------------
+  const customers = await prisma.customer.findMany()
+  const tables = await prisma.table.findMany()
 
-  const hoy = new Date()
+  const customerByEmail = new Map(customers.map((customer) => [customer.email, customer]))
+  const tableByName = new Map(tables.map((table) => [table.name, table]))
 
-  // Encontrar el próximo martes
-  function nextWeekday(dayOfWeek: number) {
-    const date = new Date(hoy)
-    const daysUntil = (dayOfWeek - date.getDay() + 7) % 7 || 7
-    date.setDate(date.getDate() + daysUntil)
-    date.setHours(14, 0, 0, 0) // 14:00
-    return date
+  function buildDate(date: string, time: string) {
+    return new Date(`${date}T${time}:00`)
   }
 
-  const proximoMartes = nextWeekday(2) // Martes
-  const proximoViernes = nextWeekday(5) // Viernes
-
-  // Reserva futura (próximo martes)
-  await prisma.booking.create({
-    data: {
-      date: proximoMartes,
-      pax: 3,
-      duration: 120,
-      status: BookingStatus.CONFIRMED,
-      customerId: clienteJuan.id,
-      tableId: mesa5.id,
-      specialRequests: 'Cumpleaños de mi esposa',
-      confirmationToken: 'demo-token-juan-001',
-      confirmedAt: new Date()
-    }
-  })
-
-  // Reserva VIP (próximo viernes)
-  const viernes1730 = new Date(proximoViernes)
-  viernes1730.setHours(13, 30, 0, 0)
-  await prisma.booking.create({
-    data: {
-      date: viernes1730,
-      pax: 6,
-      duration: 150,
-      status: BookingStatus.CONFIRMED,
-      customerId: clienteVip.id,
-      tableId: mesa10.id,
-      confirmationToken: 'demo-token-vip-002',
-      confirmedAt: new Date()
-    }
-  })
-
-  // Reserva pasada (historial)
-  const semanaPassada = new Date(hoy)
-  semanaPassada.setDate(semanaPassada.getDate() - 7)
-  semanaPassada.setHours(14, 30, 0, 0)
-  await prisma.booking.create({
-    data: {
-      date: semanaPassada,
+  const bookingsData = [
+    {
+      date: '2026-05-05',
+      time: '13:30',
       pax: 2,
       duration: 90,
       status: BookingStatus.COMPLETED,
-      customerId: clienteJuan.id,
-      tableId: mesa5.id,
-      completedAt: new Date()
+      customerEmail: 'alergico@alergias.com',
+      tableName: 'Mesa 1',
+      specialRequests: 'Tengo Alergias',
+      completedAt: buildDate('2026-05-05', '15:00')
+    },
+    {
+      date: '2026-05-05',
+      time: '14:00',
+      pax: 2,
+      duration: 90,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'ad@ad.com',
+      tableName: 'Mesa 2',
+      specialRequests: 'Mesa cerca de la ventana',
+      confirmationToken: 'demo-may-001',
+      confirmedAt: buildDate('2026-05-01', '10:00')
+    },
+    {
+      date: '2026-05-05',
+      time: '14:30',
+      pax: 2,
+      duration: 90,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'juan.perez@example.com',
+      tableName: 'Mesa 3',
+      specialRequests: 'Celebración tranquila, si puede ser en esquina',
+      confirmationToken: 'demo-may-002',
+      confirmedAt: buildDate('2026-05-01', '10:15')
+    },
+    {
+      date: '2026-05-05',
+      time: '16:00',
+      pax: 2,
+      duration: 90,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'alejandro.molina@aircury.com',
+      tableName: 'Mesa 1',
+      specialRequests: 'alergia al pan',
+      confirmationToken: 'demo-may-003',
+      confirmedAt: buildDate('2026-05-01', '11:00')
+    },
+    {
+      date: '2026-05-05',
+      time: '20:30',
+      pax: 4,
+      duration: 120,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'juan@example.com',
+      tableName: 'Mesa 5',
+      specialRequests: 'Trona para niño',
+      confirmationToken: 'demo-may-004',
+      confirmedAt: buildDate('2026-05-01', '11:30')
+    },
+    {
+      date: '2026-05-06',
+      time: '13:30',
+      pax: 3,
+      duration: 120,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'juan.perez@example.com',
+      tableName: 'Mesa 5',
+      specialRequests: 'Cumpleaños de mi esposa',
+      confirmationToken: 'demo-may-005',
+      confirmedAt: buildDate('2026-05-02', '09:30')
+    },
+    {
+      date: '2026-05-06',
+      time: '14:00',
+      pax: 6,
+      duration: 150,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'maria.garcia@example.com',
+      tableName: 'Mesa 10',
+      specialRequests: 'Una comensal alérgica a frutos secos',
+      confirmationToken: 'demo-may-006',
+      confirmedAt: buildDate('2026-05-02', '09:45')
+    },
+    {
+      date: '2026-05-06',
+      time: '20:30',
+      pax: 2,
+      duration: 90,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'maria@eme.com',
+      tableName: 'Mesa 1',
+      specialRequests: 'Aniversario, postre con vela si es posible',
+      confirmationToken: 'demo-may-007',
+      confirmedAt: buildDate('2026-05-02', '10:00')
+    },
+    {
+      date: '2026-05-07',
+      time: '13:30',
+      pax: 2,
+      duration: 90,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'carlitos@mail.com',
+      tableName: 'Mesa 1',
+      specialRequests: 'Sin prisa entre platos',
+      confirmationToken: 'demo-may-008',
+      confirmedAt: buildDate('2026-05-03', '09:00')
+    },
+    {
+      date: '2026-05-07',
+      time: '14:00',
+      pax: 4,
+      duration: 120,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'corre@test.com',
+      tableName: 'Mesa 5',
+      specialRequests: 'Voy con un bebe',
+      confirmationToken: 'demo-may-009',
+      confirmedAt: buildDate('2026-05-03', '09:15')
+    },
+    {
+      date: '2026-05-08',
+      time: '13:30',
+      pax: 2,
+      duration: 90,
+      status: BookingStatus.CANCELLED,
+      customerEmail: 'test@test.com',
+      tableName: 'Mesa 1',
+      specialRequests: 'Alergia al marisco'
+    },
+    {
+      date: '2026-05-08',
+      time: '20:30',
+      pax: 6,
+      duration: 150,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'maria.garcia@example.com',
+      tableName: 'Mesa 10',
+      specialRequests: 'Mesa tranquila. Agua sin gas.',
+      confirmationToken: 'demo-may-010',
+      confirmedAt: buildDate('2026-05-03', '12:00')
+    },
+    {
+      date: '2026-05-09',
+      time: '13:30',
+      pax: 2,
+      duration: 90,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'juan@example.com',
+      tableName: 'Mesa 1',
+      specialRequests: 'Llegaremos con carrito de bebé',
+      confirmationToken: 'demo-may-011',
+      confirmedAt: buildDate('2026-05-04', '09:00')
+    },
+    {
+      date: '2026-05-09',
+      time: '13:30',
+      pax: 2,
+      duration: 90,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'juan@example.com',
+      tableName: 'Mesa 2',
+      specialRequests: 'Cumpleaños, traer tarta al final',
+      confirmationToken: 'demo-may-012',
+      confirmedAt: buildDate('2026-05-04', '09:05')
+    },
+    {
+      date: '2026-05-09',
+      time: '13:30',
+      pax: 2,
+      duration: 90,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'juan@example.com',
+      tableName: 'Mesa 3',
+      specialRequests: 'Necesitan espacio para silla infantil',
+      confirmationToken: 'demo-may-013',
+      confirmedAt: buildDate('2026-05-04', '09:10')
+    },
+    {
+      date: '2026-05-09',
+      time: '13:30',
+      pax: 2,
+      duration: 90,
+      status: BookingStatus.CONFIRMED,
+      customerEmail: 'juan@example.com',
+      tableName: 'Mesa 4',
+      specialRequests: 'Sin gluten para uno de los comensales',
+      confirmationToken: 'demo-may-014',
+      confirmedAt: buildDate('2026-05-04', '09:15')
     }
-  })
+  ]
 
-  console.log('✅ 3 Reservas de prueba creadas')
+  for (const booking of bookingsData) {
+    const customer = customerByEmail.get(booking.customerEmail)
+    const table = tableByName.get(booking.tableName)
+
+    if (!customer || !table) {
+      throw new Error(`No se encontró customer/table para ${booking.customerEmail} / ${booking.tableName}`)
+    }
+
+    await prisma.booking.create({
+      data: {
+        date: buildDate(booking.date, booking.time),
+        pax: booking.pax,
+        duration: booking.duration,
+        status: booking.status,
+        customerId: customer.id,
+        tableId: table.id,
+        specialRequests: booking.specialRequests ?? null,
+        confirmationToken: booking.confirmationToken,
+        confirmedAt: booking.confirmedAt,
+        completedAt: booking.completedAt
+      }
+    })
+  }
+
+  console.log(`✅ ${bookingsData.length} reservas de prueba creadas en la semana objetivo`)
   
   // ------------------------------------------------------------------
-  // 8. CARTA / MENÚ (Basado en los datos hardcoded originales)
+  // 9. CARTA / MENÚ (según la BD actual)
   // ------------------------------------------------------------------
   const cartaData = [
     {
       name: 'ENTRANTES FRÍOS',
-      displayOrder: 1,
+      description: null,
+      isActive: true,
+      displayOrder: 0,
       items: [
-        { name: 'Carpaccio de ventresca de atún rojo', price: '20€', displayOrder: 1 },
-        { name: 'Hueva de mújol en semi salazón con almendra marcona', price: '11€', displayOrder: 2 },
-        { name: 'Anchoa de Lolin', price: '3€', displayOrder: 3 },
-        { name: 'Nuestra marinera', price: '4.5 / 6€', displayOrder: 4 },
-        { name: 'Ensaladilla de pulpo', price: '10 / 17€', displayOrder: 5 },
-        { name: 'Sardina ahumada', price: '5€', displayOrder: 6 },
-        { name: 'Ensalada de ventresca de bonito', price: '20€', displayOrder: 7 },
-        { name: 'Ensalada de sardina ahumada', price: '19.5€', displayOrder: 8 },
-        { name: 'Cecina de Astorga', price: '10 / 17€', displayOrder: 9 },
-        { name: 'Embutidos de Guadalest Casa Gloria', price: '8 / 12€', displayOrder: 10 },
-        { name: 'Tabla de quesos', price: '10 / 16€', displayOrder: 11 }
+        { name: 'Carpaccio de ventresca de atún rojo', description: null, price: '20€', isActive: true, displayOrder: 1 },
+        { name: 'Hueva de mújol en semi salazón con almendra marcona', description: null, price: '11€', isActive: true, displayOrder: 2 },
+        { name: 'Anchoa de Lolin', description: null, price: '3€', isActive: true, displayOrder: 3 },
+        { name: 'Nuestra marinera', description: null, price: '4.5 / 6€', isActive: true, displayOrder: 4 },
+        { name: 'Ensaladilla de pulpo', description: null, price: '10 / 17€', isActive: true, displayOrder: 5 },
+        { name: 'Sardina ahumada', description: null, price: '5€', isActive: true, displayOrder: 6 },
+        { name: 'Ensalada de ventresca de bonito', description: null, price: '20€', isActive: true, displayOrder: 7 },
+        { name: 'Ensalada de sardina ahumada', description: null, price: '19.5€', isActive: true, displayOrder: 8 },
+        { name: 'Cecina de Astorga', description: null, price: '10 / 17€', isActive: true, displayOrder: 9 },
+        { name: 'Embutidos de Guadalest Casa Gloria', description: null, price: '8 / 12€', isActive: true, displayOrder: 10 },
+        { name: 'Tabla de quesos', description: null, price: '10 / 16€', isActive: true, displayOrder: 11 }
       ]
     },
     {
       name: 'ENTRANTES CALIENTES',
-      displayOrder: 2,
+      description: null,
+      isActive: true,
+      displayOrder: 1,
       items: [
-        { name: 'Croquetas caseras', price: '3€', displayOrder: 1 },
-        { name: 'Sepionet plancha', price: '12 / 20€', displayOrder: 2 },
-        { name: 'Puntilla encebollada / Chipirón plancha', price: '21 / 11€ unidad', displayOrder: 3 },
-        { name: 'Chipirón encebollado', price: '11€ unidad', displayOrder: 4 },
-        { name: 'Almejas a la marinera', price: '21€', displayOrder: 5 },
-        { name: 'Mejillones al vapor', price: '12€', displayOrder: 6 },
-        { name: 'Mejillones picantones', price: '12€', displayOrder: 7 },
-        { name: 'Pulpo dos cocciones', price: '22€', displayOrder: 8 }
+        { name: 'Croquetas caseras', description: null, price: '3€', isActive: true, displayOrder: 1 },
+        { name: 'Sepionet plancha', description: null, price: '12 / 20€', isActive: true, displayOrder: 2 },
+        { name: 'Puntilla encebollada / Chipirón plancha', description: null, price: '21 / 11€ unidad', isActive: true, displayOrder: 3 },
+        { name: 'Chipirón encebollado', description: null, price: '11€ unidad', isActive: true, displayOrder: 4 },
+        { name: 'Almejas a la marinera', description: null, price: '21€', isActive: true, displayOrder: 5 },
+        { name: 'Mejillones al vapor', description: null, price: '12€', isActive: true, displayOrder: 6 },
+        { name: 'Mejillones picantones', description: null, price: '12€', isActive: true, displayOrder: 7 },
+        { name: 'Pulpo dos cocciones', description: null, price: '22€', isActive: true, displayOrder: 8 }
       ]
     },
     {
       name: 'LOS MÁS ESPECIALES',
-      displayOrder: 3,
+      description: null,
+      isActive: true,
+      displayOrder: 2,
       items: [
-        { name: 'Quisquilla 100gr.', price: '17€', displayOrder: 1 },
-        { name: 'Gamba roja 1ª', price: 'S. Mercado', displayOrder: 2 },
-        { name: 'Salpicón de langosta', price: 'S. Mercado', displayOrder: 3 }
+        { name: 'Quisquilla 100gr.', description: null, price: '17€', isActive: true, displayOrder: 1 },
+        { name: 'Gamba roja 1ª', description: null, price: 'S. Mercado', isActive: true, displayOrder: 2 },
+        { name: 'Salpicón de langosta', description: null, price: 'S. Mercado', isActive: true, displayOrder: 3 }
       ]
     },
     {
       name: 'PARA DAR LA LATA',
-      displayOrder: 4,
+      description: null,
+      isActive: true,
+      displayOrder: 3,
       items: [
-        { name: 'Caviar Tanit King Gold Lata 10 gr.', price: '30€', displayOrder: 1 },
-        { name: 'Navajas al natural Real Conservera Española', price: '22€', displayOrder: 2 },
-        { name: 'Mejillones en escabeche con papas', price: '16€', displayOrder: 3 },
-        { name: 'Sardinillas en aceite Real Conservera Española', price: '22€', displayOrder: 4 }
+        { name: 'Caviar Tanit King Gold Lata 10 gr.', description: null, price: '30€', isActive: true, displayOrder: 1 },
+        { name: 'Navajas al natural Real Conservera Española', description: null, price: '22€', isActive: true, displayOrder: 2 },
+        { name: 'Mejillones en escabeche con papas', description: null, price: '16€', isActive: true, displayOrder: 3 },
+        { name: 'Sardinillas en aceite Real Conservera Española', description: null, price: '22€', isActive: true, displayOrder: 4 }
       ]
     },
     {
       name: 'INDIVIDUALES',
-      displayOrder: 5,
+      description: null,
+      isActive: true,
+      displayOrder: 4,
       items: [
-        { name: 'Merluza rebozada', price: '24€', displayOrder: 1 },
-        { name: 'Ventresca de atún rojo', price: '30€', displayOrder: 2 },
-        { name: 'Solomillo de ternera', price: '25€', displayOrder: 3 }
+        { name: 'Merluza rebozada', description: null, price: '24€', isActive: true, displayOrder: 1 },
+        { name: 'Ventresca de atún rojo', description: null, price: '30€', isActive: true, displayOrder: 2 },
+        { name: 'Solomillo de ternera', description: null, price: '25€', isActive: true, displayOrder: 3 }
       ]
     },
     {
       name: 'SEGUNDOS COMPARTIR (Precio por persona)',
-      displayOrder: 6,
+      description: null,
+      isActive: true,
+      displayOrder: 5,
       items: [
-        { name: 'Rodaballo a la castreña', price: '30€', displayOrder: 1 },
-        { name: 'Cogote de merluza', price: '24€', displayOrder: 2 },
-        { name: 'Lubina a la espalda', price: '29€', displayOrder: 3 },
-        { name: 'Cherna al horno', price: '29€', displayOrder: 4 },
-        { name: 'Dentón a la espalda', price: '30€', displayOrder: 5 },
-        { name: 'Urta a la espalda', price: '29€', displayOrder: 6 },
-        { name: 'Besugo a la espalda', price: '35€', displayOrder: 7 },
-        { name: 'Cabracho al horno', price: '30€', displayOrder: 8 },
-        { name: 'Corvina a la espalda', price: '25€', displayOrder: 9 },
-        { name: 'Chuleta de vaca (Precio pieza)', price: '42€/kilo', displayOrder: 10 }
+        { name: 'Rodaballo a la castreña', description: null, price: '30€', isActive: true, displayOrder: 1 },
+        { name: 'Cogote de merluza', description: null, price: '24€', isActive: true, displayOrder: 2 },
+        { name: 'Lubina a la espalda', description: null, price: '29€', isActive: true, displayOrder: 3 },
+        { name: 'Cherna al horno', description: null, price: '29€', isActive: true, displayOrder: 4 },
+        { name: 'Dentón a la espalda', description: null, price: '30€', isActive: true, displayOrder: 5 },
+        { name: 'Urta a la espalda', description: null, price: '29€', isActive: true, displayOrder: 6 },
+        { name: 'Besugo a la espalda', description: null, price: '35€', isActive: true, displayOrder: 7 },
+        { name: 'Cabracho al horno', description: null, price: '30€', isActive: true, displayOrder: 8 },
+        { name: 'Corvina a la espalda', description: null, price: '25€', isActive: true, displayOrder: 9 },
+        { name: 'Chuleta de vaca (Precio pieza)', description: null, price: '42€/kilo', isActive: true, displayOrder: 10 }
       ]
     },
     {
       name: 'Acompañamientos y Extras',
-      displayOrder: 7,
+      description: null,
+      isActive: true,
+      displayOrder: 6,
       items: [
-        { name: 'Pan de pueblo', price: '1€ P.P.', displayOrder: 1 },
-        { name: 'Salsas extra', price: '1€', displayOrder: 2 },
-        { name: 'Aceitunas', price: '1€', displayOrder: 3 },
-        { name: 'Almendras fritas', price: '2.5€', displayOrder: 4 },
-        { name: 'Aceite Verdeliss', price: '1.5€ P.P.', displayOrder: 5 }
+        { name: 'Pan de pueblo', description: null, price: '1€ P.P.', isActive: true, displayOrder: 1 },
+        { name: 'Salsas extra', description: null, price: '1€', isActive: true, displayOrder: 2 },
+        { name: 'Aceitunas', description: null, price: '1€', isActive: true, displayOrder: 3 },
+        { name: 'Almendras fritas', description: null, price: '2.5€', isActive: true, displayOrder: 4 },
+        { name: 'Aceite Verdeliss', description: null, price: '1.5€ P.P.', isActive: true, displayOrder: 5 }
       ]
     }
   ];
@@ -330,6 +606,8 @@ async function main() {
     await prisma.menuCategory.create({
       data: {
         name: cat.name,
+        description: cat.description,
+        isActive: cat.isActive,
         displayOrder: cat.displayOrder,
         items: {
           create: cat.items
@@ -345,8 +623,9 @@ async function main() {
   console.log('   🕐 Turnos: Comidas (13:30-17:00) y Cenas (20:30-23:30), Martes a Domingo')
   console.log('   🏢 Zona: Salón Principal')
   console.log('   🪑 15 Mesas (capacidad 1-12 pax)')
-  console.log('   👥 4 Clientes CRM')
-  console.log('   📅 3 Reservas de prueba')
+  console.log('   👥 12 Clientes CRM')
+  console.log('   ⚙️ 5 configuraciones de sistema')
+  console.log('   📅 16 Reservas de prueba (semana del 4 al 9 de mayo de 2026)')
 }
 
 main()
