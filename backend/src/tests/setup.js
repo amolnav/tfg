@@ -45,7 +45,10 @@ const mockPrisma = {
   $connect: vi.fn().mockResolvedValue(true),
   $disconnect: vi.fn().mockResolvedValue(true),
   $queryRaw: vi.fn().mockResolvedValue([{ 1: 1 }]),
+  $executeRaw: vi.fn().mockResolvedValue(true),
 };
+
+mockPrisma.$transaction = vi.fn(async (callback) => callback(mockPrisma));
 
 // Inyectar en global para que database.js lo use (Singleton pattern)
 global.prisma = mockPrisma;

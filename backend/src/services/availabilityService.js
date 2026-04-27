@@ -12,6 +12,149 @@ const {
 } = require('../utils/dateHelpers');
 const { filterTablesByCapacity, calculateDuration } = require('../utils/tableHelpers');
 const { BOOKING_STATUS, AVAILABILITY } = require('../config/constants');
+const { BusinessError } = require('../middleware/errorHandler');
+
+function timeToMinutes(timeStr) {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+function getDateContext(dateStr) {
+  return {
+    date: combineDateAndTime(dateStr, '12:00'),
+    dayStart: combineDateAndTime(dateStr, '00:00'),
+    dayEnd: combineDateAndTime(dateStr, '23:59')
+  };
+}
+
+async function getClosuresForDate(dateStr) {
+  const { dayStart, dayEnd } = getDateContext(dateStr);
+
+  return prisma.closure.findMany({
+    where: {
+      startDate: { lte: dayEnd },
+      OR: [
+        { endDate: { gte: dayStart } },
+        { endDate: null, startDate: { lte: dayEnd } }
+      ]
+    }
+  });
+}
+
+function isShiftBlockedByClosure(shift, closures) {
+  return closures.some((closure) =>
+    closure.shiftId === shift.id || (closure.isFullDay && !closure.shiftId)
+  );
+}
+
+async function getActiveShiftsForDate(dateStr) {
+  const { date } = getDateContext(dateStr);
+  const dayOfWeek = getDayOfWeek(date);
+  const openingDays = await getOpeningDays();
+
+  if (openingDays && !openingDays.includes(dayOfWeek)) {
+    return {
+      shifts: [],
+      message: 'El restaurante está cerrado este día'
+    };
+  }
+
+  const [shifts, closures] = await Promise.all([
+    prisma.shift.findMany({
+      where: {
+        isActive: true,
+        daysOfWeek: { has: dayOfWeek }
+      },
+      orderBy: { startTime: 'asc' }
+    }),
+    getClosuresForDate(dateStr)
+  ]);
+
+  if (shifts.length === 0) {
+    return {
+      shifts: [],
+      message: 'No hay turnos configurados para este día'
+    };
+  }
+
+  const availableShifts = shifts.filter((shift) => !isShiftBlockedByClosure(shift, closures));
+
+  if (availableShifts.length === 0) {
+    return {
+      shifts: [],
+      message: 'El restaurante está cerrado este día'
+    };
+  }
+
+  return { shifts: availableShifts, message: null };
+}
+
+function findMatchingShift(timeStr, pax, shifts) {
+  const requestedMinutes = timeToMinutes(timeStr);
+  const duration = calculateDuration(pax);
+
+  for (const shift of shifts) {
+    const startMinutes = timeToMinutes(shift.startTime);
+    const endMinutes = timeToMinutes(shift.endTime);
+
+    if (requestedMinutes < startMinutes || requestedMinutes >= endMinutes) {
+      continue;
+    }
+
+    if ((requestedMinutes - startMinutes) % shift.slotInterval !== 0) {
+      continue;
+    }
+
+    if (requestedMinutes + duration > endMinutes) {
+      continue;
+    }
+
+    return shift;
+  }
+
+  return null;
+}
+
+async function validateBookableSlot(dateStr, timeStr, pax) {
+  if (!isDateInBookableRange(dateStr)) {
+    return {
+      valid: false,
+      message: 'La fecha está fuera del rango permitido para reservas'
+    };
+  }
+
+  if (!meetsMinimumAdvanceTime(dateStr, timeStr)) {
+    return {
+      valid: false,
+      message: `Debe reservar con al menos ${AVAILABILITY.MIN_HOURS_AHEAD} horas de antelación`
+    };
+  }
+
+  const { shifts, message } = await getActiveShiftsForDate(dateStr);
+  if (shifts.length === 0) {
+    return { valid: false, message };
+  }
+
+  const shift = findMatchingShift(timeStr, pax, shifts);
+  if (!shift) {
+    return {
+      valid: false,
+      message: 'La hora seleccionada no pertenece a un turno disponible'
+    };
+  }
+
+  return { valid: true, shift };
+}
+
+async function assertBookableSlot(dateStr, timeStr, pax) {
+  const result = await validateBookableSlot(dateStr, timeStr, pax);
+
+  if (!result.valid) {
+    throw new BusinessError(result.message, 'INVALID_BOOKING_SLOT', 409);
+  }
+
+  return result.shift;
+}
 
 /**
  * Obtiene los días disponibles en un mes para un número de comensales
@@ -24,51 +167,13 @@ const { BOOKING_STATUS, AVAILABILITY } = require('../config/constants');
 async function getAvailableDaysInMonth(year, month, pax, zoneId = null) {
   const allDays = getDaysInMonth(year, month);
   const availableDays = [];
-  const openingDays = await getOpeningDays();
-  
-  // Obtener turnos activos
-  const shifts = await prisma.shift.findMany({
-    where: { isActive: true }
-  });
-  
-  // Obtener cierres del mes
-  const monthStart = new Date(year, month - 1, 1);
-  const monthEnd = new Date(year, month, 0);
-  const closures = await prisma.closure.findMany({
-    where: {
-      startDate: { lte: monthEnd },
-      OR: [
-        { endDate: { gte: monthStart } },
-        { endDate: null, startDate: { gte: monthStart } }
-      ]
-    }
-  });
   
   for (const dateStr of allDays) {
     // Comprobar si está en rango reservable
     if (!isDateInBookableRange(dateStr)) continue;
-    
-    const date = new Date(dateStr);
-    const dayOfWeek = getDayOfWeek(date);
-    
-    // Comprobar si hay cierres totales este día
-    const isClosedFully = closures.some(closure => {
-      const closureStart = new Date(closure.startDate);
-      const closureEnd = closure.endDate ? new Date(closure.endDate) : closureStart;
-      return date >= closureStart && date <= closureEnd && closure.isFullDay;
-    });
-    
-    if (isClosedFully) continue;
 
-    // Comprobar si el restaurante abre este día de la semana
-    if (openingDays && !openingDays.includes(dayOfWeek)) continue;
-    
-    // Comprobar si hay algún turno disponible este día
-    const hasAvailableShift = shifts.some(shift => 
-      shift.daysOfWeek.includes(dayOfWeek)
-    );
-    
-    if (!hasAvailableShift) continue;
+    const { shifts } = await getActiveShiftsForDate(dateStr);
+    if (shifts.length === 0) continue;
     
     // Comprobar si hay al menos una mesa disponible en algún momento del día
     const hasCapacity = await hasAvailabilityOnDate(dateStr, pax, zoneId);
@@ -90,18 +195,13 @@ async function hasAvailabilityOnDate(dateStr, pax, zoneId) {
   if (tables.length === 0) return false;
   
   // Obtener turnos activos para este día
-  const date = new Date(dateStr);
-  const dayOfWeek = getDayOfWeek(date);
-  const shifts = await prisma.shift.findMany({
-    where: {
-      isActive: true,
-      daysOfWeek: { has: dayOfWeek }
-    }
-  });
+  const { shifts } = await getActiveShiftsForDate(dateStr);
   
   // Comprobar si hay disponibilidad en algún turno
   for (const shift of shifts) {
-    const timeSlots = generateTimeSlots(shift.startTime, shift.endTime, shift.slotInterval);
+    const duration = calculateDuration(pax);
+    const timeSlots = generateTimeSlots(shift.startTime, shift.endTime, shift.slotInterval)
+      .filter((time) => timeToMinutes(time) + duration <= timeToMinutes(shift.endTime));
     
     for (const time of timeSlots) {
       const freeTables = await findFreeTablesAtTime(tables, dateStr, time, pax);
@@ -124,27 +224,10 @@ async function getAvailableTimesForDay(dateStr, pax, zoneId = null) {
   if (!isDateInBookableRange(dateStr)) {
     return { times: [], shifts: [], message: 'Fecha fuera del rango permitido' };
   }
-  
-  const date = new Date(dateStr);
-  const dayOfWeek = getDayOfWeek(date);
-  const openingDays = await getOpeningDays();
 
-  // Comprobar si el restaurante abre este día de la semana
-  if (openingDays && !openingDays.includes(dayOfWeek)) {
-    return { times: [], shifts: [], message: 'El restaurante está cerrado este día' };
-  }
-  
-  // Obtener turnos activos para este día
-  const shifts = await prisma.shift.findMany({
-    where: {
-      isActive: true,
-      daysOfWeek: { has: dayOfWeek }
-    },
-    orderBy: { startTime: 'asc' }
-  });
-  
+  const { shifts, message: shiftsMessage } = await getActiveShiftsForDate(dateStr);
   if (shifts.length === 0) {
-    return { times: [], shifts: [], message: 'No hay turnos configurados para este día' };
+    return { times: [], shifts: [], message: shiftsMessage };
   }
   
   // Obtener mesas candidatas
@@ -153,29 +236,13 @@ async function getAvailableTimesForDay(dateStr, pax, zoneId = null) {
     return { times: [], shifts: [], message: 'No hay mesas disponibles con esa capacidad' };
   }
   
-  // Obtener cierres que afecten este día
-  const closures = await prisma.closure.findMany({
-    where: {
-      startDate: { lte: date },
-      OR: [
-        { endDate: { gte: date } },
-        { endDate: null, startDate: { equals: date } }
-      ]
-    }
-  });
-  
   const availableTimes = [];
   const shiftInfo = [];
+  const duration = calculateDuration(pax);
   
   for (const shift of shifts) {
-    // Comprobar si este turno está cerrado
-    const isShiftClosed = closures.some(closure => 
-      closure.shiftId === shift.id || (closure.isFullDay && !closure.shiftId)
-    );
-    
-    if (isShiftClosed) continue;
-    
-    const timeSlots = generateTimeSlots(shift.startTime, shift.endTime, shift.slotInterval);
+    const timeSlots = generateTimeSlots(shift.startTime, shift.endTime, shift.slotInterval)
+      .filter((time) => timeToMinutes(time) + duration <= timeToMinutes(shift.endTime));
     const shiftAvailableTimes = [];
     
     for (const time of timeSlots) {
@@ -215,31 +282,11 @@ async function getAvailableTimesForDay(dateStr, pax, zoneId = null) {
  * @returns {Promise<Object>}
  */
 async function checkAvailability(dateStr, timeStr, pax, zoneId = null) {
-  // Validaciones
-  if (!isDateInBookableRange(dateStr)) {
+  const slotValidation = await validateBookableSlot(dateStr, timeStr, pax);
+  if (!slotValidation.valid) {
     return {
       available: false,
-      message: 'La fecha está fuera del rango permitido para reservas',
-      suggestions: []
-    };
-  }
-
-  const date = new Date(dateStr);
-  const dayOfWeek = getDayOfWeek(date);
-  const openingDays = await getOpeningDays();
-
-  // Comprobar si el restaurante abre este día de la semana
-  if (openingDays && !openingDays.includes(dayOfWeek)) {
-    return {
-      available: false,
-      message: 'El restaurante está cerrado los días seleccionados'
-    };
-  }
-  
-  if (!meetsMinimumAdvanceTime(dateStr, timeStr)) {
-    return {
-      available: false,
-      message: `Debe reservar con al menos ${AVAILABILITY.MIN_HOURS_AHEAD} horas de antelación`,
+      message: slotValidation.message,
       suggestions: []
     };
   }
@@ -399,5 +446,7 @@ module.exports = {
   checkAvailability,
   isTableFreeAtTime,
   getCandidateTables,
-  findFreeTablesAtTime
+  findFreeTablesAtTime,
+  validateBookableSlot,
+  assertBookableSlot
 };

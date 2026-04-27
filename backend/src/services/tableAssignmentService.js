@@ -5,6 +5,15 @@ const { addMinutes, combineDateAndTime, doTimeRangesOverlap } = require('../util
 const { BOOKING_STATUS } = require('../config/constants');
 const { BusinessError } = require('../middleware/errorHandler');
 
+const BOOKING_LOCK_KEY = 20260427;
+
+async function withBookingTransaction(operation) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BOOKING_LOCK_KEY})`;
+    return operation(tx);
+  });
+}
+
 /**
  * Asigna la mesa óptima para una reserva.
  * Selecciona la mesa con mejor puntuación (mínimo desperdicio de capacidad) que esté libre.
@@ -15,7 +24,8 @@ const { BusinessError } = require('../middleware/errorHandler');
  * @param {number|null} zoneId - Zona preferida (opcional)
  * @returns {Promise<{type: 'SINGLE', table: Object}>}
  */
-async function assignOptimalTable(pax, dateStr, timeStr, zoneId = null) {
+async function assignOptimalTable(pax, dateStr, timeStr, zoneId = null, options = {}) {
+  const db = options.db || prisma;
   const duration = calculateDuration(pax);
   const startDateTime = combineDateAndTime(dateStr, timeStr);
   const endDateTime = addMinutes(startDateTime, duration);
@@ -31,7 +41,7 @@ async function assignOptimalTable(pax, dateStr, timeStr, zoneId = null) {
     whereClause.zoneId = parseInt(zoneId);
   }
 
-  const candidateTables = await prisma.table.findMany({
+  const candidateTables = await db.table.findMany({
     where: whereClause,
     include: { zone: true }
   });
@@ -49,7 +59,7 @@ async function assignOptimalTable(pax, dateStr, timeStr, zoneId = null) {
 
   // Intentar asignar la mejor mesa libre
   for (const table of rankedTables) {
-    const isFree = await isTableFree(table.id, startDateTime, endDateTime);
+    const isFree = await isTableFree(table.id, startDateTime, endDateTime, { db });
     if (isFree) {
       return {
         type: 'SINGLE',
@@ -74,15 +84,24 @@ async function assignOptimalTable(pax, dateStr, timeStr, zoneId = null) {
  * @param {Date} endTime
  * @returns {Promise<boolean>}
  */
-async function isTableFree(tableId, startTime, endTime) {
-  const conflictingBookings = await prisma.booking.findMany({
+async function isTableFree(tableId, startTime, endTime, options = {}) {
+  const db = options.db || prisma;
+  const whereClause = {
+    tableId,
+    status: {
+      notIn: [BOOKING_STATUS.CANCELLED, BOOKING_STATUS.NO_SHOW]
+    },
+    // Optimización: solo traer reservas que terminen después del inicio solicitado
+    date: { lt: endTime }
+  };
+
+  if (options.excludeBookingId) {
+    whereClause.id = { not: options.excludeBookingId };
+  }
+
+  const conflictingBookings = await db.booking.findMany({
     where: {
-      tableId,
-      status: {
-        notIn: [BOOKING_STATUS.CANCELLED, BOOKING_STATUS.NO_SHOW]
-      },
-      // Optimización: solo traer reservas que terminen después del inicio solicitado
-      date: { lt: endTime }
+      ...whereClause
     }
   });
 
@@ -105,82 +124,70 @@ async function isTableFree(tableId, startTime, endTime) {
  * @returns {Promise<Object>}
  */
 async function reassignBooking(bookingId, newTableId) {
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
-    include: { table: true, customer: true }
-  });
+  return withBookingTransaction(async (tx) => {
+    const booking = await tx.booking.findUnique({
+      where: { id: bookingId },
+      include: { table: true, customer: true }
+    });
 
-  if (!booking) {
-    throw new BusinessError('Reserva no encontrada', 'NOT_FOUND', 404);
-  }
-
-  const newTable = await prisma.table.findUnique({
-    where: { id: newTableId },
-    include: { zone: true }
-  });
-
-  if (!newTable) {
-    throw new BusinessError('Mesa no encontrada', 'TABLE_NOT_FOUND', 404);
-  }
-
-  // Verificar que la nueva mesa tiene suficiente capacidad
-  if (newTable.maxCapacity < booking.pax) {
-    throw new BusinessError(
-      `La mesa ${newTable.name} tiene capacidad máxima de ${newTable.maxCapacity} personas, pero la reserva es para ${booking.pax}`,
-      'TABLE_INSUFFICIENT_CAPACITY',
-      409
-    );
-  }
-
-  // Verificar disponibilidad (excluyendo la reserva actual)
-  const startTime = new Date(booking.date);
-  const endTime = addMinutes(startTime, booking.duration);
-
-  const conflictingBookings = await prisma.booking.findMany({
-    where: {
-      tableId: newTableId,
-      id: { not: bookingId }, // Excluir la reserva actual
-      status: {
-        notIn: [BOOKING_STATUS.CANCELLED, BOOKING_STATUS.NO_SHOW]
-      },
-      date: { lt: endTime }
+    if (!booking) {
+      throw new BusinessError('Reserva no encontrada', 'NOT_FOUND', 404);
     }
-  });
 
-  for (const conflict of conflictingBookings) {
-    const conflictStart = new Date(conflict.date);
-    const conflictEnd = addMinutes(conflictStart, conflict.duration);
+    const newTable = await tx.table.findUnique({
+      where: { id: newTableId },
+      include: { zone: true }
+    });
 
-    if (doTimeRangesOverlap(startTime, endTime, conflictStart, conflictEnd)) {
+    if (!newTable) {
+      throw new BusinessError('Mesa no encontrada', 'TABLE_NOT_FOUND', 404);
+    }
+
+    if (newTable.maxCapacity < booking.pax) {
+      throw new BusinessError(
+        `La mesa ${newTable.name} tiene capacidad máxima de ${newTable.maxCapacity} personas, pero la reserva es para ${booking.pax}`,
+        'TABLE_INSUFFICIENT_CAPACITY',
+        409
+      );
+    }
+
+    const startTime = new Date(booking.date);
+    const endTime = addMinutes(startTime, booking.duration);
+    const isFree = await isTableFree(newTableId, startTime, endTime, {
+      db: tx,
+      excludeBookingId: bookingId
+    });
+
+    if (!isFree) {
       throw new BusinessError(
         `La mesa ${newTable.name} no está disponible a esa hora`,
         'TABLE_OCCUPIED',
         409
       );
     }
-  }
 
-  // Realizar la reasignación
-  const updated = await prisma.booking.update({
-    where: { id: bookingId },
-    data: {
-      tableId: newTableId,
-      modifiedAt: new Date()
-    },
-    include: {
-      customer: true,
-      table: { include: { zone: true } }
-    }
+    const updated = await tx.booking.update({
+      where: { id: bookingId },
+      data: {
+        tableId: newTableId,
+        modifiedAt: new Date()
+      },
+      include: {
+        customer: true,
+        table: { include: { zone: true } }
+      }
+    });
+
+    return {
+      message: `Reserva reasignada a ${newTable.name}`,
+      data: updated
+    };
   });
-
-  return {
-    message: `Reserva reasignada a ${newTable.name}`,
-    data: updated
-  };
 }
 
 module.exports = {
   assignOptimalTable,
   isTableFree,
-  reassignBooking
+  reassignBooking,
+  withBookingTransaction
 };

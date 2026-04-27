@@ -1,11 +1,11 @@
 
 const crypto = require('crypto');
-const prisma = require('../config/database');
 const customerService = require('../services/customerService');
 const emailService = require('../services/emailService');
 const tableAssignmentService = require('../services/tableAssignmentService');
 const validationService = require('../services/validationService');
-const { asyncHandler } = require('../middleware/errorHandler');
+const availabilityService = require('../services/availabilityService');
+const { asyncHandler, BusinessError } = require('../middleware/errorHandler');
 const { emitToBackoffice } = require('../socketManager');
 const { combineDateAndTime } = require('../utils/dateHelpers');
 const { calculateDuration } = require('../utils/tableHelpers');
@@ -62,41 +62,41 @@ exports.createReservation = asyncHandler(async (req, res) => {
     );
   }
   
-  // Asignar mesa óptima
-  const assignment = await tableAssignmentService.assignOptimalTable(
-    parseInt(pax),
-    date,
-    time,
-    zoneId ? parseInt(zoneId) : null
-  );
-  
-  // Generar token de confirmación único
-  const confirmationToken = crypto.randomBytes(16).toString('hex');
-  
-  // Calcular duración
-  const duration = calculateDuration(parseInt(pax));
-  const dateTime = combineDateAndTime(date, time);
-  
-  // Crear la reserva
-  const booking = await prisma.booking.create({
-    data: {
-      date: dateTime,
-      duration,
-      pax: parseInt(pax),
-      status: BOOKING_STATUS.CONFIRMED,
-      source: BOOKING_SOURCE.WEB,
-      specialRequests: sanitizedRequests || null,
-      customerId: customer.id,
-      tableId: assignment.type === 'SINGLE' ? assignment.table.id : assignment.tables[0].id,
-      confirmationToken,
-      confirmedAt: new Date()
-    },
-    include: {
-      customer: true,
-      table: {
-        include: { zone: true }
+  const booking = await tableAssignmentService.withBookingTransaction(async (tx) => {
+    await availabilityService.assertBookableSlot(date, time, parseInt(pax));
+
+    const assignment = await tableAssignmentService.assignOptimalTable(
+      parseInt(pax),
+      date,
+      time,
+      zoneId ? parseInt(zoneId) : null,
+      { db: tx }
+    );
+
+    const confirmationToken = crypto.randomBytes(16).toString('hex');
+    const duration = calculateDuration(parseInt(pax));
+    const dateTime = combineDateAndTime(date, time);
+
+    return tx.booking.create({
+      data: {
+        date: dateTime,
+        duration,
+        pax: parseInt(pax),
+        status: BOOKING_STATUS.CONFIRMED,
+        source: BOOKING_SOURCE.WEB,
+        specialRequests: sanitizedRequests || null,
+        customerId: customer.id,
+        tableId: assignment.type === 'SINGLE' ? assignment.table.id : assignment.tables[0].id,
+        confirmationToken,
+        confirmedAt: new Date()
+      },
+      include: {
+        customer: true,
+        table: {
+          include: { zone: true }
+        }
       }
-    }
+    });
   });
   
   console.log(`✅ Reserva creada: ${booking.id}`);
@@ -135,10 +135,7 @@ exports.createReservation = asyncHandler(async (req, res) => {
       },
       table: {
         name: booking.table.name,
-        zone: booking.table.zone?.name,
-        ...(assignment.type === 'COMBINATION' && {
-          note: assignment.message
-        })
+        zone: booking.table.zone?.name
       }
     }
   });

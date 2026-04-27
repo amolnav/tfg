@@ -3,6 +3,7 @@ const prisma = require('../../config/database');
 const customerService = require('../../services/customerService');
 const tableAssignmentService = require('../../services/tableAssignmentService');
 const validationService = require('../../services/validationService');
+const availabilityService = require('../../services/availabilityService');
 const { asyncHandler, BusinessError } = require('../../middleware/errorHandler');
 const { combineDateAndTime, formatDate, formatTime } = require('../../utils/dateHelpers');
 const { calculateDuration } = require('../../utils/tableHelpers');
@@ -168,7 +169,7 @@ exports.createBooking = asyncHandler(async (req, res) => {
   } = req.body;
   
   // Validar datos básicos
-  validationService.validateBookingData({
+  await validationService.validateBookingData({
     date,
     time,
     pax,
@@ -189,51 +190,62 @@ exports.createBooking = asyncHandler(async (req, res) => {
   
   const duration = calculateDuration(parseInt(pax));
   const dateTime = combineDateAndTime(date, time);
-  
-  let assignedTable = tableId ? parseInt(tableId) : null;
-  
-  // Si no se especifica mesa, asignar automáticamente
-  if (!assignedTable) {
-    const assignment = await tableAssignmentService.assignOptimalTable(
-      parseInt(pax),
-      date,
-      time,
-      zoneId ? parseInt(zoneId) : null
-    );
-    assignedTable = assignment.type === 'SINGLE' 
-      ? assignment.table.id 
-      : assignment.tables[0].id;
-  } else {
-    // Validar que la mesa esté libre
-    const startDateTime = dateTime;
-    const endDateTime = new Date(dateTime.getTime() + duration * 60000);
-    const isFree = await tableAssignmentService.isTableFree(assignedTable, startDateTime, endDateTime);
-    
-    if (!isFree) {
-      throw new BusinessError('La mesa seleccionada no está disponible', 'TABLE_OCCUPIED', 409);
-    }
-  }
-  
-  // Crear reserva
-  const booking = await prisma.booking.create({
-    data: {
-      date: dateTime,
-      duration,
-      pax: parseInt(pax),
-      status: BOOKING_STATUS.CONFIRMED,
-      source,
-      specialRequests: sanitizedRequests || null,
-      customerId: customer.id,
-      tableId: assignedTable,
-      assignedBy: assignedBy || 'Sistema',
-      confirmedAt: new Date()
-    },
-    include: {
-      customer: true,
-      table: {
-        include: { zone: true }
+
+  const booking = await tableAssignmentService.withBookingTransaction(async (tx) => {
+    await availabilityService.assertBookableSlot(date, time, parseInt(pax));
+
+    let assignedTable = tableId ? parseInt(tableId) : null;
+
+    if (!assignedTable) {
+      const assignment = await tableAssignmentService.assignOptimalTable(
+        parseInt(pax),
+        date,
+        time,
+        zoneId ? parseInt(zoneId) : null,
+        { db: tx }
+      );
+      assignedTable = assignment.type === 'SINGLE'
+        ? assignment.table.id
+        : assignment.tables[0].id;
+    } else {
+      const selectedTable = await tx.table.findUnique({ where: { id: assignedTable } });
+
+      if (!selectedTable || !selectedTable.isActive) {
+        throw new BusinessError('La mesa seleccionada no existe o está inactiva', 'TABLE_NOT_FOUND', 404);
+      }
+
+      if (selectedTable.minCapacity > parseInt(pax) || selectedTable.maxCapacity < parseInt(pax)) {
+        throw new BusinessError('La mesa seleccionada no tiene capacidad para esa reserva', 'TABLE_INSUFFICIENT_CAPACITY', 409);
+      }
+
+      const endDateTime = new Date(dateTime.getTime() + duration * 60000);
+      const isFree = await tableAssignmentService.isTableFree(assignedTable, dateTime, endDateTime, { db: tx });
+
+      if (!isFree) {
+        throw new BusinessError('La mesa seleccionada no está disponible', 'TABLE_OCCUPIED', 409);
       }
     }
+
+    return tx.booking.create({
+      data: {
+        date: dateTime,
+        duration,
+        pax: parseInt(pax),
+        status: BOOKING_STATUS.CONFIRMED,
+        source,
+        specialRequests: sanitizedRequests || null,
+        customerId: customer.id,
+        tableId: assignedTable,
+        assignedBy: assignedBy || 'Sistema',
+        confirmedAt: new Date()
+      },
+      include: {
+        customer: true,
+        table: {
+          include: { zone: true }
+        }
+      }
+    });
   });
   
   console.log(`✅ Reserva creada (back-office): ${booking.id}`);
@@ -252,79 +264,101 @@ exports.createBooking = asyncHandler(async (req, res) => {
 exports.updateBooking = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { date, time, pax, tableId, specialRequests, status } = req.body;
-  
-  const booking = await prisma.booking.findUnique({
-    where: { id },
-    include: { table: true }
-  });
-  
-  if (!booking) {
-    throw new BusinessError('Reserva no encontrada', 'NOT_FOUND', 404);
+
+  if ((date && !time) || (!date && time)) {
+    throw new BusinessError('Debe indicar fecha y hora a la vez', 'MISSING_DATE_OR_TIME', 400);
   }
-  
-  const updateData = { modifiedAt: new Date() };
-  
-  // Actualizar fecha/hora
-  if (date && time) {
-    validationService.validateBookingDate(date);
-    validationService.validateBookingTime(date, time);
-    updateData.date = combineDateAndTime(date, time);
-  }
-  
-  // Actualizar comensales
-  if (pax) {
-    validationService.validatePaxCount(pax);
-    updateData.pax = parseInt(pax);
-    updateData.duration = calculateDuration(parseInt(pax));
-  }
-  
-  // Actualizar mesa
-  if (tableId && tableId !== booking.tableId) {
-    // Validar disponibilidad de la nueva mesa
-    const startDateTime = updateData.date || booking.date;
-    const duration = updateData.duration || booking.duration;
-    const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
-    
-    const isFree = await tableAssignmentService.isTableFree(
-      parseInt(tableId),
-      startDateTime,
-      endDateTime
-    );
-    
+
+  const updated = await tableAssignmentService.withBookingTransaction(async (tx) => {
+    const booking = await tx.booking.findUnique({
+      where: { id },
+      include: { table: true }
+    });
+
+    if (!booking) {
+      throw new BusinessError('Reserva no encontrada', 'NOT_FOUND', 404);
+    }
+
+    const updateData = { modifiedAt: new Date() };
+
+    if (date && time) {
+      validationService.validateBookingDate(date);
+      validationService.validateBookingTime(date, time);
+      await availabilityService.assertBookableSlot(date, time, parseInt(pax || booking.pax));
+      updateData.date = combineDateAndTime(date, time);
+    }
+
+    if (pax) {
+      const paxValidation = await validationService.validatePaxCount(pax);
+      if (!paxValidation.valid) {
+        throw new BusinessError(paxValidation.message, paxValidation.code, 400);
+      }
+
+      updateData.pax = parseInt(pax);
+      updateData.duration = calculateDuration(parseInt(pax));
+
+      const currentDate = date ? date : formatDate(booking.date);
+      const currentTime = date && time ? time : formatTime(booking.date);
+      await availabilityService.assertBookableSlot(currentDate, currentTime, updateData.pax);
+    }
+
+    const nextDateTime = updateData.date || booking.date;
+    const nextDuration = updateData.duration || booking.duration;
+    const nextPax = updateData.pax || booking.pax;
+    const requestedTableId = tableId ? parseInt(tableId) : booking.tableId;
+
+    if (!requestedTableId) {
+      throw new BusinessError('La reserva debe tener una mesa asignada', 'MISSING_TABLE_ID', 409);
+    }
+
+    const selectedTable = await tx.table.findUnique({ where: { id: requestedTableId } });
+    if (!selectedTable || !selectedTable.isActive) {
+      throw new BusinessError('La mesa seleccionada no existe o está inactiva', 'TABLE_NOT_FOUND', 404);
+    }
+
+    if (selectedTable.minCapacity > nextPax || selectedTable.maxCapacity < nextPax) {
+      throw new BusinessError('La mesa seleccionada no tiene capacidad para esa reserva', 'TABLE_INSUFFICIENT_CAPACITY', 409);
+    }
+
+    const endDateTime = new Date(nextDateTime.getTime() + nextDuration * 60000);
+    const isFree = await tableAssignmentService.isTableFree(requestedTableId, nextDateTime, endDateTime, {
+      db: tx,
+      excludeBookingId: id
+    });
+
     if (!isFree) {
-      throw new BusinessError('La nueva mesa no está disponible', 'TABLE_OCCUPIED', 409);
+      throw new BusinessError('La mesa seleccionada no está disponible', 'TABLE_OCCUPIED', 409);
     }
-    
-    updateData.tableId = parseInt(tableId);
-  }
-  
-  // Actualizar observaciones
-  if (specialRequests !== undefined) {
-    updateData.specialRequests = validationService.sanitizeText(specialRequests, 500);
-  }
-  
-  // Actualizar estado
-  if (status) {
-    updateData.status = status;
-    
-    // Marcar timestamps según estado
-    if (status === BOOKING_STATUS.SEATED && !booking.seatedAt) {
-      updateData.seatedAt = new Date();
+
+    if (tableId) {
+      updateData.tableId = requestedTableId;
     }
-    if (status === BOOKING_STATUS.COMPLETED && !booking.completedAt) {
-      updateData.completedAt = new Date();
+
+    if (specialRequests !== undefined) {
+      updateData.specialRequests = validationService.sanitizeText(specialRequests, 500);
     }
-  }
-  
-  const updated = await prisma.booking.update({
-    where: { id },
-    data: updateData,
-    include: {
-      customer: true,
-      table: {
-        include: { zone: true }
+
+    if (status) {
+      updateData.status = status;
+
+      if (status === BOOKING_STATUS.SEATED && !booking.seatedAt) {
+        updateData.seatedAt = new Date();
+      }
+      if (status === BOOKING_STATUS.COMPLETED && !booking.completedAt) {
+        updateData.completedAt = new Date();
       }
     }
+
+    return tx.booking.update({
+      where: { id },
+      data: updateData,
+      include: {
+        customer: true,
+        table: {
+          include: { zone: true }
+        }
+      }
+    });
   });
   
   console.log(`📝 Reserva actualizada: ${id}`);
