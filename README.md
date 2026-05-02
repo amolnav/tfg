@@ -139,12 +139,40 @@ erDiagram
 ## 🚀 Despliegue (Estado Actual)
 
 > [!IMPORTANT]
-> **Despliegue objetivo:** el proyecto puede desplegarse separando frontend y backend en Render.
-> 
-> **Configuración recomendada:**
-> - **Frontend:** Render Static Site
-> - **Backend:** Render Web Service
-> - **Database:** Render PostgreSQL
+> **Despliegue objetivo:** El proyecto está diseñado para desplegarse separando el Frontend y Backend utilizando **Render**.
+
+### Pasos de Despliegue en Render
+
+1. **Base de Datos (Render PostgreSQL):**
+   - Crear una nueva base de datos PostgreSQL (`Free`).
+   - Copiar la *Internal Database URL*.
+
+2. **Backend (Render Web Service):**
+   - Conectar el repositorio y seleccionar la carpeta `backend` como *Root Directory*.
+   - **Environment:** `Node`
+   - **Build Command:** `npm install && npx prisma generate && npx prisma migrate deploy`
+   - **Start Command:** `npm start`
+   - **Variables de Entorno necesarias:**
+     - `DATABASE_URL`: URL interna de la base de datos.
+     - `JWT_SECRET`: Clave secreta para los tokens.
+     - `FRONTEND_URL`: URL final del frontend en Render (sin barra final).
+     - **Configuración SMTP (Ej. Mailtrap para TFGs):**
+       - `SMTP_HOST`: `sandbox.smtp.mailtrap.io`
+       - `SMTP_PORT`: `2525` (Render bloquea 465/587 en el tier gratuito)
+       - `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM`
+
+3. **Frontend (Render Static Site):**
+   - Seleccionar la carpeta `frontend` como *Root Directory*.
+   - **Build Command:** `npm install && npm run build`
+   - **Publish Directory:** `dist`
+   - **Variables de Entorno necesarias:**
+     - `VITE_API_URL`: URL del backend terminada en `/api` (ej. `https://mi-backend.onrender.com/api`).
+     - `VITE_SOCKET_URL`: URL base del backend (ej. `https://mi-backend.onrender.com`).
+   - **⚠️ Redirects/Rewrites (CRÍTICO para React Router):**
+     - Crear una regla: `Source: /*` -> `Destination: /index.html` -> `Action: Rewrite`.
+
+4. **Semilla de Datos (Seed):**
+   - Para poblar la base de datos inicial, ejecuta `bash seed-prod.sh` dentro de la carpeta `backend` localmente, o configúralo temporalmente en el Build Command de Render.
 
 ---
 

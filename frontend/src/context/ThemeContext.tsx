@@ -12,11 +12,11 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
-  const isAdminPath = location.pathname.startsWith('/admin');
+  const isAdminPath = location.pathname.startsWith('/admin') && location.pathname !== '/admin/login';
 
   const [theme, setTheme] = useState<Theme>(() => {
     // If not admin path on initial load, always light
-    const initialIsAdmin = window.location.pathname.startsWith('/admin');
+    const initialIsAdmin = window.location.pathname.startsWith('/admin') && window.location.pathname !== '/admin/login';
     if (!initialIsAdmin) return 'light';
 
     const saved = localStorage.getItem('admin_theme');
