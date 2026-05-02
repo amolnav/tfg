@@ -48,6 +48,11 @@ El sistema está diseñado para tres tipos de usuarios:
    - Definir horarios, turnos y cierres.
    - Gestionar el menú y los usuarios del sistema.
 
+### 🔑 Credenciales de Prueba (Demo)
+Para evaluar el sistema y acceder al panel de administración (`/admin`), puedes utilizar las siguientes credenciales generadas por defecto:
+- **Usuario:** `admin@mesonmarinero.com`
+- **Contraseña:** `admin1234`
+
 ---
 
 ## 🏗️ Arquitectura del Sistema
